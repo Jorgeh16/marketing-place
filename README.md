@@ -19,3 +19,12 @@ Copie `.env.example` para `.env` e ajuste `VITE_API_URL` para apontar para a API
 - Tailwind CSS v4 e shadcn/ui
 
 O projeto está apenas configurado; nenhuma tela ou rota de aplicação foi criada.
+
+## Testes E2E
+
+Os testes Playwright sobem o app com `npm run dev:e2e` na porta `4175` e ativam o MSW
+no navegador para usar os dados simulados.
+
+```bash
+npm run test:e2e
+```

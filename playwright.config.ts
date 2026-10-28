@@ -18,6 +18,9 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev:e2e',
     url: 'http://127.0.0.1:4175',
+    env: {
+      VITE_ENABLE_MSW: 'true',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
