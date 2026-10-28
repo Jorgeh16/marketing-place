@@ -39,7 +39,7 @@ function CheckoutPage() {
     return (
       <div className="mx-auto max-w-xl px-5 py-24 text-center">
         <h1 className="text-3xl font-semibold">Seu carrinho está vazio</h1>
-        <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="mt-6 inline-flex text-violet-800 underline">
+        <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="mt-6 inline-flex text-violet-800 underline">
           Voltar ao catálogo
         </Link>
       </div>

@@ -88,7 +88,7 @@ function OrderPage() {
           {order.items.map(({ nft, quantity }) => <li key={nft.id}>{nft.name} × {quantity}</li>)}
         </ul>
       </div>
-      <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="mt-7 inline-flex text-sm font-medium text-violet-800 underline">
+      <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="mt-7 inline-flex text-sm font-medium text-violet-800 underline">
         Continuar explorando
       </Link>
     </div>

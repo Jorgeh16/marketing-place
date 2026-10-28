@@ -54,7 +54,7 @@ function NFTDetailPage() {
       <div role="alert" className="mx-auto max-w-3xl px-5 py-24 text-center">
         <h1 className="text-2xl font-semibold">Não foi possível encontrar esta obra</h1>
         <p className="mt-2 text-neutral-500">{error?.message ?? 'A obra pode ter sido removida.'}</p>
-        <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-violet-800">
+        <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-violet-800">
           <ArrowLeft aria-hidden="true" className="size-4" />
           Voltar ao catálogo
         </Link>
@@ -64,7 +64,7 @@ function NFTDetailPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-10 sm:px-8 sm:py-14">
-      <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="mb-8 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-black">
+      <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="mb-8 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-black">
         <ArrowLeft aria-hidden="true" className="size-4" />
         Voltar ao catálogo
       </Link>

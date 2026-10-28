@@ -9,12 +9,12 @@ export function AppLayout() {
     <div className="min-h-screen bg-[#faf9f6] text-[#191816]">
       <header className="sticky top-0 z-20 border-b border-black/5 bg-[#faf9f6]/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="flex items-center gap-2 font-semibold tracking-tight">
+          <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="flex items-center gap-2 font-semibold tracking-tight">
             <Gem aria-hidden="true" className="size-5 text-violet-700" />
             <span>Forma</span>
           </Link>
           <nav aria-label="Navegação principal" className="flex items-center gap-2 sm:gap-5">
-            <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="hidden text-sm text-neutral-600 hover:text-black sm:block">
+            <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="hidden text-sm text-neutral-600 hover:text-black sm:block">
               Explorar
             </Link>
             <Link

@@ -23,7 +23,7 @@ function CartPage() {
           <p className="mt-2 text-sm text-neutral-500">Explore o catálogo e encontre uma obra para sua coleção.</p>
           <Link
             to="/"
-            search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }}
+            search={{ q: '', sort: 'newest', page: 1 }}
             className="mt-6 inline-flex rounded-full bg-[#191816] px-5 py-3 text-sm font-medium text-white"
           >
             Explorar obras

@@ -43,7 +43,7 @@ function LoginPage() {
         </p>
       </section>
       <section className="mx-auto w-full max-w-md">
-        <Link to="/" search={{ q: '', collection: '', blockchain: '', sort: 'newest', page: 1 }} className="inline-flex items-center gap-2 text-sm text-neutral-500">
+        <Link to="/" search={{ q: '', sort: 'newest', page: 1 }} className="inline-flex items-center gap-2 text-sm text-neutral-500">
           <ArrowLeft aria-hidden="true" className="size-4" />
           Voltar ao catálogo
         </Link>

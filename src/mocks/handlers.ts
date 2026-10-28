@@ -22,8 +22,7 @@ export const handlers = [
     const filtered = nfts
       .filter((nft) => {
         const matchesQuery =
-          !query ||
-          `${nft.name} ${nft.creator.name} ${nft.collection}`.toLocaleLowerCase().includes(query)
+            !query || nft.name.toLocaleLowerCase().includes(query)
         return (
           matchesQuery &&
           (!collection || nft.collection === collection) &&
