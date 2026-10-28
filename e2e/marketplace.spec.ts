@@ -9,6 +9,18 @@ test('catalog lists NFT names, images and prices', async ({ page }) => {
   await expect(page.getByText('0,223 ETH')).toBeVisible()
 })
 
+test('visitor can add an NFT to the cart from the catalog', async ({ page }) => {
+  await page.goto('/')
+  const nftCard = page.locator('[data-slot="card"]').filter({ hasText: 'Astral Bloom' })
+  await nftCard.getByRole('button', { name: 'Adicionar ao carrinho' }).click()
+
+  await expect(nftCard.getByRole('button', { name: 'Adicionado ao carrinho' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Carrinho (1)' })).toBeVisible()
+  await page.getByRole('link', { name: 'Carrinho (1)' }).click()
+  await expect(page.getByRole('heading', { name: 'Astral Bloom' })).toBeVisible()
+  await expect(page.getByLabel('Quantidade', { exact: true })).toHaveText('1')
+})
+
 test('NFT detail handles missing items and applies nft.updated events', async ({ page }) => {
   await page.goto('/nfts/does-not-exist')
   await expect(page.getByRole('heading', { name: 'Não foi possível encontrar esta obra' })).toBeVisible()

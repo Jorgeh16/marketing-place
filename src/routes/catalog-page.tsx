@@ -1,5 +1,9 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createRoute } from '@tanstack/react-router'
+import { ShoppingCart } from 'lucide-react'
+import { useCart } from '../cart/cart-provider'
+import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { api } from '../lib/axios'
@@ -56,6 +60,9 @@ function CatalogPage() {
 }
 
 function NFTCard({ nft }: { nft: NFT }) {
+  const { add } = useCart()
+  const [added, setAdded] = useState(false)
+
   return (
     <Card className="overflow-hidden p-0 transition-shadow hover:shadow-lg">
       <img
@@ -71,6 +78,17 @@ function NFTCard({ nft }: { nft: NFT }) {
         <p className="font-semibold">
           {nft.price.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {nft.currency}
         </p>
+        <Button
+          type="button"
+          onClick={() => {
+            add(nft)
+            setAdded(true)
+          }}
+          className="mt-4 h-11 w-full rounded-xl bg-[#191816] text-white hover:bg-neutral-700"
+        >
+          <ShoppingCart aria-hidden="true" />
+          {added ? 'Adicionado ao carrinho' : 'Adicionar ao carrinho'}
+        </Button>
       </CardContent>
     </Card>
   )
