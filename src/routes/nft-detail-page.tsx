@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, Heart, ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { rootRoute } from '../router'
 import { getNFT } from '../lib/api'
 import { useCart } from '../cart/cart-provider'
-import { useState } from 'react'
+import { connectToNFT } from '../lib/order-socket'
 
 export const nftDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -15,11 +16,25 @@ export const nftDetailRoute = createRoute({
 function NFTDetailPage() {
   const { nftId } = nftDetailRoute.useParams()
   const { add } = useCart()
+  const queryClient = useQueryClient()
   const [added, setAdded] = useState(false)
   const { data: nft, isPending, isError, error } = useQuery({
     queryKey: ['nft', nftId],
     queryFn: () => getNFT(nftId),
+    retry: false,
   })
+
+  useEffect(() => {
+    const socket = connectToNFT(nftId, (update) => {
+      queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) =>
+        current ? { ...current, ...update } : current,
+      )
+    })
+
+    return () => {
+      socket?.disconnect()
+    }
+  }, [nftId, queryClient])
 
   if (isPending) {
     return (

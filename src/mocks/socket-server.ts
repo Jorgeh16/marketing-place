@@ -1,5 +1,6 @@
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
+import { nfts } from './data/nfts'
 
 const httpServer = createServer()
 const io = new Server(httpServer, {
@@ -14,6 +15,15 @@ const io = new Server(httpServer, {
 })
 
 io.on('connection', (socket) => {
+  socket.on('nft:watch', (nftId: string) => {
+    const nft = nfts.find((item) => item.id === nftId)
+    if (!nft) return
+
+    setTimeout(() => {
+      socket.emit('nft.updated', { id: nft.id, likes: nft.likes + 1 })
+    }, 1000)
+  })
+
   socket.on('order:watch', (orderId: string) => {
     if (!orderId) return
 

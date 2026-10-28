@@ -1,8 +1,11 @@
 import { io } from 'socket.io-client'
-import type { OrderStatus } from '../types/nft'
+import type { NFT, OrderStatus } from '../types/nft'
 
 export function connectToOrder(orderId: string, onStatus: (status: OrderStatus) => void) {
-  const socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001', {
+  const url = getSocketUrl()
+  if (!url) return null
+
+  const socket = io(url, {
     reconnection: true,
     reconnectionAttempts: 5,
   })
@@ -13,4 +16,25 @@ export function connectToOrder(orderId: string, onStatus: (status: OrderStatus) 
   })
 
   return socket
+}
+
+export function connectToNFT(nftId: string, onUpdate: (nft: Partial<NFT>) => void) {
+  const url = getSocketUrl()
+  if (!url) return null
+
+  const socket = io(url, {
+    reconnection: true,
+    reconnectionAttempts: 5,
+  })
+
+  socket.on('connect', () => socket.emit('nft:watch', nftId))
+  socket.on('nft.updated', (update: Partial<NFT> & { id: string }) => {
+    if (update.id === nftId) onUpdate(update)
+  })
+
+  return socket
+}
+
+function getSocketUrl() {
+  return import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:3001' : null)
 }

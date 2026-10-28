@@ -9,8 +9,10 @@ no navegador publicado.
 
 O mock HTTP roda no navegador e serve para demonstração; ele não substitui uma
 API persistente. O servidor Socket.IO é um processo separado de desenvolvimento
-e não faz parte do deploy estático da Vercel. Para produção real, configure
-`VITE_API_URL` e `VITE_SOCKET_URL` para serviços hospedados.
+e envia o evento `nft.updated` ao abrir um detalhe, além de emitir atualizações
+de status de pedidos. Ele não faz parte do deploy estático da Vercel. Para
+atualizações em tempo real em produção, hospede um servidor Socket.IO e configure
+`VITE_SOCKET_URL`; configure também `VITE_API_URL` para a API persistente.
 
 ## Conta de demonstração
 

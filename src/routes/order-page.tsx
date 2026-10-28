@@ -39,7 +39,7 @@ function OrderPage() {
       )
     })
     return () => {
-      socket.disconnect()
+      socket?.disconnect()
     }
   }, [orderAvailable, orderId, queryClient])
 
