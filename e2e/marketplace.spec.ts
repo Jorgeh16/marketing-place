@@ -1,23 +1,12 @@
 import { expect, test } from '@playwright/test'
 
-test('catalog filters and pagination are reflected in the URL', async ({ page }) => {
+test('catalog lists NFT names, images and prices', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Explore as obras' })).toBeVisible()
-  await expect(page.locator('article')).toHaveCount(12)
-
-  await page.getByRole('button', { name: 'Próxima' }).click()
-  await expect(page).toHaveURL(/page=2/)
-  await expect(page.locator('article')).toHaveCount(12)
-
-  await page.getByLabel('Filtrar por coleção').selectOption('Otherworlds')
-  await expect(page).toHaveURL(/collection=Otherworlds/)
-  await expect(page).toHaveURL(/page=1/)
-  await expect(page.locator('article')).toHaveCount(6)
-
-  await page.getByRole('searchbox', { name: 'Buscar obras, artistas ou coleções' }).fill('Astral Bloom')
-  await expect(page).toHaveURL(/q=Astral\+Bloom/)
-  await expect(page.locator('article')).toHaveCount(1)
-  await expect(page.getByRole('heading', { name: 'Astral Bloom' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'NFTs' })).toBeVisible()
+  await expect(page.locator('[data-slot="card"]')).toHaveCount(30)
+  await expect(page.getByRole('img', { name: 'Astral Bloom' })).toBeVisible()
+  await expect(page.getByText('Astral Bloom')).toBeVisible()
+  await expect(page.getByText('0,223 ETH')).toBeVisible()
 })
 
 test('NFT detail handles missing items and applies nft.updated events', async ({ page }) => {

@@ -17,7 +17,7 @@ export const handlers = [
     const blockchain = url.searchParams.get('blockchain') ?? ''
     const sort = url.searchParams.get('sort') ?? 'newest'
     const page = Math.max(1, Math.floor(Number(url.searchParams.get('page')) || 1))
-    const pageSize = Math.min(24, Math.max(1, Math.floor(Number(url.searchParams.get('limit')) || 12)))
+    const pageSize = Math.min(100, Math.max(1, Math.floor(Number(url.searchParams.get('limit')) || 12)))
 
     const filtered = nfts
       .filter((nft) => {
