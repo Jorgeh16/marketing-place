@@ -15,3 +15,32 @@ export interface NFT {
   likes: number
   createdAt: string
 }
+
+export interface NFTPage {
+  items: NFT[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface OrderItem {
+  nft: NFT
+  quantity: number
+}
+
+export type OrderStatus = 'processing' | 'confirmed' | 'completed'
+
+export interface Order {
+  id: string
+  items: OrderItem[]
+  total: number
+  status: OrderStatus
+  createdAt: string
+}
+
+export interface User {
+  id: string
+  name: string
+  email: string
+}
