@@ -1,10 +1,26 @@
-import { createRootRoute, createRouter, Outlet } from '@tanstack/react-router'
+import { createRootRoute, createRouter } from '@tanstack/react-router'
+import { AppLayout } from './components/app-layout'
+import { catalogRoute } from './routes/catalog-page'
+import { nftDetailRoute } from './routes/nft-detail-page'
+import { cartRoute } from './routes/cart-page'
+import { checkoutRoute } from './routes/checkout-page'
+import { loginRoute } from './routes/login-page'
+import { orderRoute } from './routes/order-page'
 
-const rootRoute = createRootRoute({
-  component: Outlet,
+export const rootRoute = createRootRoute({
+  component: AppLayout,
 })
 
-export const router = createRouter({ routeTree: rootRoute })
+const routeTree = rootRoute.addChildren([
+  catalogRoute,
+  nftDetailRoute,
+  cartRoute,
+  checkoutRoute,
+  loginRoute,
+  orderRoute,
+])
+
+export const router = createRouter({ routeTree })
 
 declare module '@tanstack/react-router' {
   interface Register {

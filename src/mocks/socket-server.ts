@@ -4,7 +4,12 @@ import { Server } from 'socket.io'
 const httpServer = createServer()
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:4175',
+    ],
   },
 })
 
@@ -25,6 +30,6 @@ io.on('connection', (socket) => {
 })
 
 const port = Number(process.env.SOCKET_PORT) || 3001
-httpServer.listen(port, '0.0.0.0', () => {
+httpServer.listen(port, '127.0.0.1', () => {
   console.log(`Mock Socket.IO server listening on port ${port}`)
 })

@@ -34,7 +34,7 @@ export type OrderStatus = 'processing' | 'confirmed' | 'completed'
 export interface Order {
   id: string
   items: OrderItem[]
-  total: number
+  total: Array<{ currency: NFT['currency']; amount: number }>
   status: OrderStatus
   createdAt: string
 }

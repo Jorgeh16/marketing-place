@@ -16,8 +16,8 @@ export const handlers = [
     const collection = url.searchParams.get('collection') ?? ''
     const blockchain = url.searchParams.get('blockchain') ?? ''
     const sort = url.searchParams.get('sort') ?? 'newest'
-    const page = Math.max(1, Number(url.searchParams.get('page')) || 1)
-    const pageSize = Math.min(24, Math.max(1, Number(url.searchParams.get('limit')) || 12))
+    const page = Math.max(1, Math.floor(Number(url.searchParams.get('page')) || 1))
+    const pageSize = Math.min(24, Math.max(1, Math.floor(Number(url.searchParams.get('limit')) || 12)))
 
     const filtered = nfts
       .filter((nft) => {
@@ -83,10 +83,20 @@ export const handlers = [
       return HttpResponse.json({ message: 'O pedido precisa ter pelo menos um item' }, { status: 400 })
     }
 
+    const totals = items.reduce((result, item) => {
+      result.set(
+        item.nft.currency,
+        (result.get(item.nft.currency) ?? 0) + item.nft.price * item.quantity,
+      )
+      return result
+    }, new Map<NFT['currency'], number>())
     const order: Order = {
-      id: `ord-${Date.now().toString(36)}`,
+      id: `ord-${crypto.randomUUID()}`,
       items,
-      total: Number(items.reduce((sum, item) => sum + item.nft.price * item.quantity, 0).toFixed(3)),
+      total: Array.from(totals, ([currency, amount]) => ({
+        currency,
+        amount: Number(amount.toFixed(3)),
+      })),
       status: 'processing',
       createdAt: new Date().toISOString(),
     }
