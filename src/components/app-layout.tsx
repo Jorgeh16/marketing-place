@@ -5,6 +5,8 @@ import { useCart } from '../cart/cart-provider'
 import { logout } from '../lib/api'
 import { queryClient } from '../lib/query-client'
 import { getSession, sessionQueryKey } from '../lib/session'
+import { useEffect } from 'react'
+import { DevScenarioPanel } from './dev-scenario-panel'
 
 export function AppLayout() {
   const { count } = useCart()
@@ -19,9 +21,19 @@ export function AppLayout() {
     onSuccess: () => {
       localStorage.removeItem('auth-token')
       queryClient.clear()
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { userId: null } }))
       void navigate({ to: '/', search: { q: '', sort: 'newest', page: 1 } })
     },
   })
+
+  useEffect(() => {
+    function handleExpiredSession() {
+      const redirect = window.location.pathname === '/checkout' ? '/checkout' : '/'
+      void navigate({ to: '/login', search: { redirect } })
+    }
+    window.addEventListener('session:expired', handleExpiredSession)
+    return () => window.removeEventListener('session:expired', handleExpiredSession)
+  }, [navigate])
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-[#191816]">
@@ -46,6 +58,9 @@ export function AppLayout() {
             {!sessionPending && (user ? (
               <>
                 <span className="hidden text-sm text-neutral-600 md:inline">{user.name}</span>
+                <Link to="/profile" className="rounded-full px-3 py-2 text-sm text-neutral-600 hover:bg-black/5 hover:text-black">
+                  Perfil
+                </Link>
                 <button
                   type="button"
                   disabled={logoutMutation.isPending}
@@ -83,6 +98,7 @@ export function AppLayout() {
           <span>Uma experiência de marketplace em ambiente de demonstração.</span>
         </div>
       </footer>
+      <DevScenarioPanel />
     </div>
   )
 }

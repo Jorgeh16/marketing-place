@@ -1,18 +1,29 @@
 # Desenvolvimento local
 
-`npm run dev` inicia o Vite, os endpoints HTTP simulados pelo MSW e o servidor
-Socket.IO de demonstração. O MSW intercepta chamadas `/api` apenas durante o
-desenvolvimento e também é habilitado em builds de produção por `.env.production`.
-O site da Vercel é configurado por `vercel.json`; o arquivo
-`public/mockServiceWorker.js` é incluído no build para permitir a interceptação
-no navegador publicado.
+`npm run dev` inicia o Vite e o MSW, que simula os endpoints HTTP e o protocolo
+Socket.IO no navegador. Esses mocks são apenas para demonstração e mantêm os dados
+em memória; não substituem uma API ou um armazenamento persistente.
 
-O mock HTTP roda no navegador e serve para demonstração; ele não substitui uma
-API persistente. O servidor Socket.IO é um processo separado de desenvolvimento
-e envia o evento `nft.updated` ao abrir um detalhe, além de emitir atualizações
-de status de pedidos. Ele não faz parte do deploy estático da Vercel. Para
-atualizações em tempo real em produção, hospede um servidor Socket.IO e configure
-`VITE_SOCKET_URL`; configure também `VITE_API_URL` para a API persistente.
+## Configuração de produção
+
+O deploy da Vercel usa `vercel.json` e publica o build estático. Por padrão,
+`.env.production` habilita o MSW para que a demonstração continue funcionando
+publicada. Antes de conectar serviços reais, sobrescreva `VITE_ENABLE_MSW=false`
+no ambiente de build e configure:
+
+- `VITE_API_URL`: URL-base HTTPS da API persistente, incluindo o prefixo `/api`.
+- `VITE_SOCKET_URL`: URL HTTPS do servidor Socket.IO (o cliente usa WebSocket).
+
+O servidor deve implementar os endpoints usados em `src/lib/api.ts`, aceitar o
+token Bearer de sessão e permitir a origem do site via CORS. O servidor Socket.IO
+deve permitir a origem do site e implementar os eventos `nft:watch`,
+`nft.updated`, `nft.updated:ack`, `order:watch`, `order.updated` e
+`order.updated:ack`. A configuração de Vercel não cria nem hospeda esses serviços.
+
+Não há provedor de pagamentos, API persistente, banco de dados ou servidor Socket.IO
+de produção configurados neste repositório. O checkout e a conexão de carteira são
+simulados; para processar pagamentos reais, integre um provedor escolhido e valide
+transações no servidor, sem expor chaves privadas no frontend.
 
 ## Conta de demonstração
 
@@ -20,8 +31,13 @@ atualizações em tempo real em produção, hospede um servidor Socket.IO e conf
 - Senha: `demo123`
 
 O mock disponibiliza catálogo e detalhe de NFTs, autenticação de demonstração,
-criação e consulta de pedidos. O servidor Socket.IO envia atualizações de estado
-para o pedido aberto no navegador.
+perfil, carteiras, favoritos, cotações e pedidos. Os eventos mock são transmitidos
+entre abas/clientes conectados ao navegador.
+
+O painel **Cenários MSW**, visível somente em desenvolvimento, permite ativar
+respostas lentas, falhas HTTP, sessões expiradas, alteração de preços, indisponibilidade
+de estoque e resultados simulados de pagamento. A opção de reset restaura os dados
+mock e limpa o armazenamento local do navegador.
 
 ## Testes de ponta a ponta
 
