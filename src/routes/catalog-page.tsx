@@ -18,6 +18,11 @@ type CatalogSearch = {
   q: string
   sort: 'newest' | 'price-asc' | 'price-desc'
   page: number
+  collection?: string
+  blockchain?: string
+  category?: string
+  rarity?: string
+  availability?: string
 }
 
 export const catalogRoute = createRoute({
@@ -30,6 +35,11 @@ export const catalogRoute = createRoute({
         ? search.sort
         : 'newest',
     page: Math.max(1, Math.floor(Number(search.page) || 1)),
+    collection: typeof search.collection === 'string' ? search.collection : undefined,
+    blockchain: typeof search.blockchain === 'string' ? search.blockchain : undefined,
+    category: typeof search.category === 'string' ? search.category : undefined,
+    rarity: typeof search.rarity === 'string' ? search.rarity : undefined,
+    availability: typeof search.availability === 'string' ? search.availability : undefined,
   }),
   component: CatalogPage,
 })
@@ -38,6 +48,11 @@ async function getNFTs(search: CatalogSearch) {
   const { data } = await api.get<unknown>('/nfts', {
     params: {
       q: search.q,
+      collection: search.collection ?? '',
+      blockchain: search.blockchain ?? '',
+      category: search.category ?? '',
+      rarity: search.rarity ?? '',
+      availability: search.availability ?? '',
       sort: search.sort,
       page: search.page,
       limit: pageSize,
@@ -92,6 +107,7 @@ function CatalogPage() {
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['nfts', search],
     queryFn: () => getNFTs(search),
+    retry: false,
   })
 
   function updateSearch(next: Partial<CatalogSearch>, replace = false) {
@@ -100,6 +116,38 @@ function CatalogPage() {
       replace,
     })
   }
+
+  const filters = [
+    {
+      key: 'collection' as const,
+      label: 'Filtrar por coleção',
+      options: ['Tesouros do Convés', 'Navegantes da Selva', 'Relíquias da Maré', 'Cartografia Perdida', 'Tesouros do Abismo', 'Relíquias do Convés'],
+    },
+    {
+      key: 'blockchain' as const,
+      label: 'Filtrar por blockchain',
+      options: ['Ethereum', 'Solana', 'Polygon'],
+    },
+    {
+      key: 'category' as const,
+      label: 'Filtrar por categoria',
+      options: ['Tesouro', 'Criatura', 'Relíquia', 'Navegação', 'Cartografia', 'Equipamento', 'Embarcação'],
+    },
+    {
+      key: 'rarity' as const,
+      label: 'Filtrar por raridade',
+      options: ['Comum', 'Incomum', 'Raro', 'Épico', 'Lendário'],
+    },
+    {
+      key: 'availability' as const,
+      label: 'Filtrar por disponibilidade',
+      options: [
+        { value: 'available', label: 'Disponível' },
+        { value: 'low-stock', label: 'Últimas unidades' },
+        { value: 'sold-out', label: 'Esgotado' },
+      ],
+    },
+  ]
 
   return (
     <section className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
@@ -137,6 +185,25 @@ function CatalogPage() {
             <option value="price-desc">Maior preço</option>
           </select>
         </label>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {filters.map(({ key, label, options }) => (
+          <label key={key} className="text-sm">
+            <span className="sr-only">{label}</span>
+            <select
+              aria-label={label}
+              value={search[key] ?? ''}
+              onChange={(event) => updateSearch({ [key]: event.target.value || undefined, page: 1 })}
+              className="h-11 w-full rounded-xl border border-black/10 bg-white px-3 outline-none focus-visible:ring-2 focus-visible:ring-violet-700"
+            >
+              <option value="">Todas</option>
+              {options.map((option) => typeof option === 'string'
+                ? <option key={option} value={option}>{option}</option>
+                : <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        ))}
       </div>
 
       {isError ? (

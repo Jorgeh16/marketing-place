@@ -6,14 +6,25 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
   outputDir: './node_modules/.cache/playwright-results',
+  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{projectName}{ext}',
   use: {
     baseURL: 'http://127.0.0.1:4175',
     trace: 'retain-on-failure',
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'chromium-desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      name: 'chromium-tablet',
+      testMatch: '**/responsive-visual.spec.ts',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: 'chromium-mobile',
+      testMatch: '**/responsive-visual.spec.ts',
+      use: { ...devices['iPhone 13'], browserName: 'chromium' },
     },
   ],
   webServer: {

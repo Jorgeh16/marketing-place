@@ -5,6 +5,9 @@ export interface CatalogParams {
   q: string
   collection: string
   blockchain: string
+  category: string
+  rarity: string
+  availability: string
   sort: string
   page: number
   limit: number

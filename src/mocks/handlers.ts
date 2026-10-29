@@ -484,14 +484,21 @@ export const handlers = [
   http.post('*/api/test/nfts/:id/events', async ({ params, request }) => {
     const nft = nfts.find(({ id }) => id === params.id)
     if (!nft) return HttpResponse.json({ message: 'NFT não encontrado' }, { status: 404 })
-    const body = await request.json() as { eventId?: string; version?: number; price?: string }
+    const body = await request.json() as {
+      eventId?: string
+      version?: number
+      price?: string
+      stock?: number
+    }
     if (
       typeof body.eventId !== 'string' ||
       typeof body.version !== 'number' ||
       !Number.isInteger(body.version) ||
-      typeof body.price !== 'string' ||
-      !Number.isFinite(Number(body.price)) ||
-      Number(body.price) <= 0
+      (body.price === undefined && body.stock === undefined) ||
+      (body.price !== undefined &&
+        (typeof body.price !== 'string' || !Number.isFinite(Number(body.price)) || Number(body.price) <= 0)) ||
+      (body.stock !== undefined &&
+        (typeof body.stock !== 'number' || !Number.isInteger(body.stock) || body.stock < 0))
     ) {
       return HttpResponse.json({ message: 'Evento NFT inválido.' }, { status: 400 })
     }
@@ -499,13 +506,17 @@ export const handlers = [
     nftEventIds.add(body.eventId)
     if ((body.version ?? 0) > (nft.version ?? 1)) {
       nft.version = body.version
-      nft.price = body.price
+      if (body.price !== undefined) nft.price = body.price
+      if (body.stock !== undefined) nft.stock = body.stock
     }
     publishNFTEvent({
       eventId: body.eventId,
       resource: { id: nft.id },
       version: body.version,
-      data: { price: body.price },
+      data: {
+        ...(body.price === undefined ? {} : { price: body.price }),
+        ...(body.stock === undefined ? {} : { stock: body.stock }),
+      },
     })
     return HttpResponse.json({ accepted: true }, { status: 202 })
   }),

@@ -6,6 +6,7 @@ export interface NFTUpdate {
   id: string
   version: number
   price?: string | number
+  stock?: number
   likes?: number
   eventId?: string
 }
@@ -82,6 +83,7 @@ export function connectToNFT(
       id: event.resource.id,
       version: event.version,
       ...(event.data.price === undefined ? {} : { price: String(event.data.price) }),
+      ...(event.data.stock === undefined ? {} : { stock: event.data.stock }),
       ...(event.data.likes === undefined ? {} : { likes: event.data.likes }),
       eventId: event.eventId,
     })
@@ -120,6 +122,7 @@ export function connectToNFTUpdates(
       id: nftId,
       version: event.version,
       ...(event.data.price === undefined ? {} : { price: String(event.data.price) }),
+      ...(event.data.stock === undefined ? {} : { stock: event.data.stock }),
       ...(event.data.likes === undefined ? {} : { likes: event.data.likes }),
       eventId: event.eventId,
     })

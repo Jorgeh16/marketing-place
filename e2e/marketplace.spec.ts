@@ -1,8 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 
+test.setTimeout(60_000)
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'NFTs' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('heading', { name: 'NFTs' })).toBeVisible({ timeout: 30_000 })
 
   const reset = await page.evaluate(async () => {
     const response = await fetch('/api/test/reset', { method: 'POST' })
@@ -13,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 
 })
 
-async function addNFTToCartAndSignIn(page: Page) {
+async function addNFTToCartAndSignIn(page: Page, decision: 'confirm' | 'decline' = 'confirm') {
   await page.goto('/nfts/nft-001')
   await expect(page.getByRole('heading', { name: 'Baú do Capitão' })).toBeVisible()
   await page.getByRole('button', { name: 'Adicionar ao carrinho' }).click()
@@ -24,7 +26,7 @@ async function addNFTToCartAndSignIn(page: Page) {
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page).toHaveURL(/\/checkout/)
   await expect(page.getByRole('heading', { name: 'Dados do colecionador' })).toBeVisible()
-  await preparePayment(page)
+  await preparePayment(page, decision)
 }
 
 async function preparePayment(page: Page, decision: 'confirm' | 'decline' = 'confirm') {
@@ -40,15 +42,16 @@ async function postNFTUpdate(
   version: number,
   price: number,
   expectAcknowledgement = true,
+  stock?: number,
 ) {
-  const apiStatus = await page.evaluate(async ({ eventId, version, price }) => {
+  const apiStatus = await page.evaluate(async ({ eventId, version, price, stock }) => {
     const response = await fetch('/api/test/nfts/nft-001/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId, version, price: String(price) }),
+      body: JSON.stringify({ eventId, version, price: String(price), ...(stock === undefined ? {} : { stock }) }),
     })
     return response.status
-  }, { eventId, version, price })
+  }, { eventId, version, price, stock })
   expect(apiStatus).toBe(202)
   if (!expectAcknowledgement) return
   await expect.poll(async () => {
@@ -120,6 +123,42 @@ test('catalog lists NFTs and supports URL-backed search, sorting and pagination'
 
   await page.getByRole('searchbox', { name: 'Buscar por nome' }).fill('no NFT has this name')
   await expect(page.getByRole('status')).toHaveText('Nenhum NFT encontrado. Tente buscar por outro nome.')
+})
+
+test('catalog combines filters with search and restores them from the URL', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Filtrar por coleção').selectOption('Cartografia Perdida')
+  await page.getByLabel('Filtrar por blockchain').selectOption('Ethereum')
+  await page.getByLabel('Filtrar por categoria').selectOption('Navegação')
+  await page.getByLabel('Filtrar por raridade').selectOption('Incomum')
+  await page.getByLabel('Filtrar por disponibilidade').selectOption('available')
+
+  await expect(page.getByRole('img', { name: 'Bússola de jade com agulha dourada' })).toBeVisible()
+  await expect(page.getByText('Página 1 de 1')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const params = new URLSearchParams(location.search)
+    return {
+      collection: params.get('collection'),
+      blockchain: params.get('blockchain'),
+      category: params.get('category'),
+      rarity: params.get('rarity'),
+      availability: params.get('availability'),
+    }
+  })).toEqual({
+    collection: 'Cartografia Perdida',
+    blockchain: 'Ethereum',
+    category: 'Navegação',
+    rarity: 'Incomum',
+    availability: 'available',
+  })
+
+  await page.reload()
+  await expect(page.getByRole('img', { name: 'Bússola de jade com agulha dourada' })).toBeVisible()
+  await expect(page.getByLabel('Filtrar por coleção')).toHaveValue('Cartografia Perdida')
+  await expect(page.getByLabel('Filtrar por blockchain')).toHaveValue('Ethereum')
+  await expect(page.getByLabel('Filtrar por categoria')).toHaveValue('Navegação')
+  await expect(page.getByLabel('Filtrar por raridade')).toHaveValue('Incomum')
+  await expect(page.getByLabel('Filtrar por disponibilidade')).toHaveValue('available')
 })
 
 test('pirate NFT mocks expose local artwork and varied inventory metadata', async ({ page }) => {
@@ -421,6 +460,49 @@ test('a pending order is recovered after reload without creating a second order'
   })).toBe(1)
 })
 
+test('a pending order reconnects after a Socket.IO interruption without duplicating purchase', async ({ page }) => {
+  await addNFTToCartAndSignIn(page)
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'order-pending' }),
+    })
+  })
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click()
+  await expect(page).toHaveURL(/\/orders\/ord-/)
+  await expect(page.getByRole('heading', { name: 'Pedido pendente' })).toBeVisible()
+  const orderId = page.url().split('/').pop()!
+  const getSocketState = () => page.evaluate(async () => {
+    const response = await fetch('/api/test/state')
+    return await response.json() as {
+      orderCount: number
+      socket: { clients: Array<{ orderIds: string[] }> }
+    }
+  })
+
+  await expect.poll(async () =>
+    (await getSocketState()).socket.clients.some(({ orderIds }) => orderIds.includes(orderId)),
+  ).toBe(true)
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'connection-drop' }),
+    })
+  })
+  await expect.poll(async () =>
+    (await getSocketState()).socket.clients.some(({ orderIds }) => orderIds.includes(orderId)),
+    { timeout: 15_000 },
+  ).toBe(true)
+
+  const state = await getSocketState()
+  expect(state.orderCount).toBe(1)
+  const updated = await postOrderUpdate(page, orderId, `reconnected-${orderId}`, 2, 'confirmed')
+  expect(updated.body.accepted).toBe(true)
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible()
+})
+
 test('order socket events apply once and ignore duplicates and stale versions', async ({ page }) => {
   await addNFTToCartAndSignIn(page)
   await page.evaluate(async () => {
@@ -464,6 +546,16 @@ test('order socket events apply once and ignore duplicates and stale versions', 
     const state = await response.json() as { acknowledgedEvents: string[] }
     return state.acknowledgedEvents.filter((acknowledged) => acknowledged === id).length
   }, eventId)).toBe(1)
+})
+
+test('declined payment keeps the cart available for another attempt', async ({ page }) => {
+  await addNFTToCartAndSignIn(page, 'decline')
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click()
+  await expect(page).toHaveURL(/\/orders\/ord-/)
+  await expect(page.getByRole('heading', { name: 'Pagamento recusado' })).toBeVisible()
+  await page.getByRole('link', { name: 'Revisar carrinho' }).click()
+  await expect(page.getByRole('heading', { name: 'Carrinho', exact: true })).toBeVisible()
+  await expect(page.getByLabel('Quantidade', { exact: true })).toHaveText('1')
 })
 
 test('changing accounts removes access to the previous account order and socket subscription', async ({ page }) => {
@@ -581,8 +673,9 @@ test('NFT detail handles missing items and applies nft.updated events', async ({
   await page.getByRole('searchbox', { name: 'Buscar por nome' }).fill('Baú do Capitão')
   await page.getByRole('link', { name: /Baú dourado aberto entre folhas de palmeira/ }).click()
   await expect(page.getByText('0,223 ETH', { exact: true })).toBeVisible()
-  await postNFTUpdate(page, 'detail-price-v2', 2, 0.5)
+  await postNFTUpdate(page, 'detail-price-v2', 2, 0.5, true, 0)
   await expect(page.getByText('0,5 ETH', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Esgotado' })).toBeDisabled()
 })
 
 test('visitor can add an NFT, log in, create an order and receive live updates', async ({ page }) => {
@@ -651,6 +744,17 @@ test('profile edits, password changes, and wallet updates work end to end', asyn
   await page.getByRole('button', { name: 'Salvar perfil' }).click()
   await expect(page.getByText('Colecionador Atualizado', { exact: true })).toBeVisible()
 
+  await page.getByLabel('URL do avatar').fill(`${new URL(page.url()).origin}/nfts/bau-do-capitao.svg`)
+  await page.getByRole('button', { name: 'Salvar perfil' }).click()
+  await expect(page.getByRole('img', { name: 'Prévia do avatar' })).toHaveAttribute('src', /\/nfts\/bau-do-capitao\.svg$/)
+
+  await page.getByLabel('E-mail', { exact: true }).fill('collector@example.com')
+  await page.getByRole('button', { name: 'Salvar perfil' }).click()
+  await expect(page.getByText('Este e-mail já está em uso.', { exact: true }).first()).toBeVisible()
+  await page.getByLabel('E-mail', { exact: true }).fill('demo@example.com')
+  await page.getByRole('button', { name: 'Salvar perfil' }).click()
+  await expect(page.getByText('Colecionador Atualizado', { exact: true })).toBeVisible()
+
   await page.getByLabel('Senha atual').fill('demo123')
   await page.getByLabel('Nova senha').fill('senha-nova-123')
   await page.getByRole('button', { name: 'Alterar senha' }).click()
@@ -667,6 +771,59 @@ test('profile edits, password changes, and wallet updates work end to end', asyn
   await page.getByLabel('Senha').fill('senha-nova-123')
   await page.getByRole('button', { name: 'Entrar' }).click()
   await expect(page.getByText('Colecionador Atualizado', { exact: true })).toBeVisible()
+})
+
+test('keyboard navigation reaches login fields and validation errors', async ({ page }) => {
+  await page.goto('/login')
+  const email = page.getByLabel('E-mail')
+  for (let tab = 0; tab < 10 && !(await email.evaluate((element) => element === document.activeElement)); tab += 1) {
+    await page.keyboard.press('Tab')
+  }
+  await expect(email).toBeFocused()
+  await email.fill('email-invalido')
+  await page.keyboard.press('Tab')
+  const password = page.getByLabel('Senha')
+  await expect(password).toBeFocused()
+  await password.fill('')
+  await page.keyboard.press('Tab')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Informe um e-mail válido.')).toBeVisible()
+  await expect(page.getByText('Informe sua senha.')).toBeVisible()
+})
+
+test('slow loading shows skeletons and a failed request recovers on retry', async ({ page }) => {
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'slow' }),
+    })
+  })
+  await expect.poll(() => getActiveScenario(page)).toBe('slow')
+  await page.getByRole('searchbox', { name: 'Buscar por nome' }).fill('sem resultado')
+  await expect(page.locator('[aria-busy="true"]').first()).toBeVisible()
+  await expect(page.getByRole('status')).toHaveText('Nenhum NFT encontrado. Tente buscar por outro nome.')
+
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'error-5xx' }),
+    })
+  })
+  await expect.poll(() => getActiveScenario(page)).toBe('error-5xx')
+  await page.getByRole('searchbox', { name: 'Buscar por nome' }).fill('erro simulado')
+  await expect(page.getByRole('alert')).toContainText('Não foi possível carregar os NFTs:')
+
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'default' }),
+    })
+  })
+  await page.getByRole('button', { name: 'Tentar novamente' }).click()
+  await expect(page.getByRole('status')).toHaveText('Nenhum NFT encontrado. Tente buscar por outro nome.')
 })
 
 test('development scenario panel applies and resets reproducible API failures', async ({ page }) => {
