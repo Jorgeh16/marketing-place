@@ -4,28 +4,42 @@ import { createRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Gem } from 'lucide-react'
 import { rootRoute } from '../router'
 import { login } from '../lib/api'
+import { getApiErrorMessage, getApiErrorStatus, sessionQueryKey } from '../lib/session'
+import { queryClient } from '../lib/query-client'
 
 export const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: search.redirect === '/checkout' ? '/checkout' as const : '/' as const,
+  }),
   component: LoginPage,
 })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { redirect: redirectTo } = loginRoute.useSearch()
   const [email, setEmail] = useState('demo@example.com')
   const [password, setPassword] = useState('demo123')
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
   const mutation = useMutation({
     mutationFn: () => login({ email, password }),
     onSuccess: ({ token, user }) => {
       localStorage.setItem('auth-token', token)
-      localStorage.setItem('auth-user', JSON.stringify(user))
-      void navigate({ to: '/checkout' })
+      queryClient.setQueryData(sessionQueryKey, user)
+      void navigate({ to: redirectTo })
     },
   })
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const errors: typeof fieldErrors = {}
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = 'Informe um e-mail válido.'
+    }
+    if (!password) errors.password = 'Informe sua senha.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
     mutation.mutate()
   }
 
@@ -49,30 +63,50 @@ function LoginPage() {
         </Link>
         <h2 className="mt-8 text-3xl font-semibold tracking-tight">Boas-vindas</h2>
         <p className="mt-2 text-sm text-neutral-500">Acesse sua conta para concluir o pedido.</p>
-        <form onSubmit={submit} className="mt-8 space-y-5">
+        <form noValidate onSubmit={submit} className="mt-8 space-y-5">
           <label className="block text-sm font-medium">
             E-mail
             <input
+              id="login-email"
               type="email"
               autoComplete="email"
-              required
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setFieldErrors((current) => ({ ...current, email: undefined }))
+                mutation.reset()
+              }}
               className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-violet-700/30"
             />
+            {fieldErrors.email && <span id="login-email-error" role="alert" className="mt-1 block text-sm text-red-700">{fieldErrors.email}</span>}
           </label>
           <label className="block text-sm font-medium">
             Senha
             <input
+              id="login-password"
               type="password"
               autoComplete="current-password"
-              required
+              aria-invalid={Boolean(fieldErrors.password || (mutation.isError && getApiErrorStatus(mutation.error) === 401))}
+              aria-describedby={fieldErrors.password || (mutation.isError && getApiErrorStatus(mutation.error) === 401) ? 'login-password-error' : undefined}
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                setFieldErrors((current) => ({ ...current, password: undefined }))
+                mutation.reset()
+              }}
               className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-violet-700/30"
             />
+            {(fieldErrors.password || (mutation.isError && getApiErrorStatus(mutation.error) === 401)) && (
+              <span id="login-password-error" role="alert" className="mt-1 block text-sm text-red-700">
+                {fieldErrors.password ?? getApiErrorMessage(mutation.error, 'Não foi possível entrar.')}
+              </span>
+            )}
           </label>
-          {mutation.isError && <p role="alert" className="text-sm text-red-700">{mutation.error.message}</p>}
+          {mutation.isError && getApiErrorStatus(mutation.error) !== 401 && (
+            <p role="alert" className="text-sm text-red-700">{getApiErrorMessage(mutation.error, 'Não foi possível entrar.')}</p>
+          )}
           <button
             type="submit"
             disabled={mutation.isPending}
@@ -82,7 +116,14 @@ function LoginPage() {
           </button>
         </form>
         <p className="mt-5 rounded-xl bg-neutral-100 p-4 text-xs leading-5 text-neutral-600">
-          Acesso de demonstração: <strong>demo@example.com</strong> / <strong>demo123</strong>
+          Acessos de demonstração: <strong>demo@example.com / demo123</strong> ou{' '}
+          <strong>collector@example.com / collect123</strong>
+        </p>
+        <p className="mt-5 text-center text-sm text-neutral-600">
+          Ainda não tem conta?{' '}
+          <Link to="/register" search={{ redirect: redirectTo }} className="font-medium text-violet-800 underline">
+            Criar conta
+          </Link>
         </p>
       </section>
     </div>

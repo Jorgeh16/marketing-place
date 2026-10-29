@@ -25,12 +25,28 @@ export async function login(credentials: { email: string; password: string }) {
   return data
 }
 
+export async function register(credentials: { name: string; email: string; password: string }) {
+  const { data } = await api.post<{ user: User; token: string }>('/auth/register', credentials)
+  return data
+}
+
+export async function logout() {
+  await api.post('/auth/logout')
+}
+
 export async function getOrder(id: string) {
   const { data } = await api.get<Order>(`/orders/${id}`)
   return data
 }
 
-export async function createOrder(items: Array<{ nftId: string; quantity: number }>) {
-  const { data } = await api.post<Order>('/orders', { items })
+export async function createOrder(
+  items: Array<{ nftId: string; quantity: number }>,
+  idempotencyKey: string,
+) {
+  const { data } = await api.post<Order>(
+    '/orders',
+    { items },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  )
   return data
 }

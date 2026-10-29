@@ -1,9 +1,27 @@
-import { Link, Outlet } from '@tanstack/react-router'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { Gem, ShoppingBag, UserRound } from 'lucide-react'
 import { useCart } from '../cart/cart-provider'
+import { logout } from '../lib/api'
+import { queryClient } from '../lib/query-client'
+import { getSession, sessionQueryKey } from '../lib/session'
 
 export function AppLayout() {
   const { count } = useCart()
+  const navigate = useNavigate()
+  const { data: user, isPending: sessionPending } = useQuery({
+    queryKey: sessionQueryKey,
+    queryFn: getSession,
+    retry: false,
+  })
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      localStorage.removeItem('auth-token')
+      queryClient.clear()
+      void navigate({ to: '/', search: { q: '', sort: 'newest', page: 1 } })
+    },
+  })
 
   return (
     <div className="min-h-screen bg-[#faf9f6] text-[#191816]">
@@ -25,15 +43,35 @@ export function AppLayout() {
               <ShoppingBag aria-hidden="true" className="size-4" />
               <span className="hidden sm:inline">Carrinho{count > 0 ? ` (${count})` : ''}</span>
             </Link>
-            <Link
-              to="/login"
-              aria-label="Entrar"
-              className="inline-flex items-center gap-2 rounded-full bg-[#191816] px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-            >
-              <UserRound aria-hidden="true" className="size-4" />
-              <span>Entrar</span>
-            </Link>
+            {!sessionPending && (user ? (
+              <>
+                <span className="hidden text-sm text-neutral-600 md:inline">{user.name}</span>
+                <button
+                  type="button"
+                  disabled={logoutMutation.isPending}
+                  onClick={() => logoutMutation.mutate()}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#191816] px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+                >
+                  {logoutMutation.isPending ? 'Saindo…' : 'Sair'}
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                search={{ redirect: '/' }}
+                aria-label="Entrar"
+                className="inline-flex items-center gap-2 rounded-full bg-[#191816] px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+              >
+                <UserRound aria-hidden="true" className="size-4" />
+                <span>Entrar</span>
+              </Link>
+            ))}
           </nav>
+          {logoutMutation.isError && (
+            <p role="alert" className="absolute right-5 top-16 rounded-lg bg-white px-3 py-2 text-sm text-red-700 shadow">
+              Não foi possível encerrar a sessão. Tente novamente.
+            </p>
+          )}
         </div>
       </header>
       <main>

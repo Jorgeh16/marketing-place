@@ -6,6 +6,7 @@ import { cartRoute } from './routes/cart-page'
 import { checkoutRoute } from './routes/checkout-page'
 import { loginRoute } from './routes/login-page'
 import { orderRoute } from './routes/order-page'
+import { registerRoute } from './routes/register-page'
 
 export const rootRoute = createRootRoute({
   component: AppLayout,
@@ -17,6 +18,7 @@ const routeTree = rootRoute.addChildren([
   cartRoute,
   checkoutRoute,
   loginRoute,
+  registerRoute,
   orderRoute,
 ])
 

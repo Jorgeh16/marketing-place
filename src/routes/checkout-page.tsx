@@ -1,39 +1,39 @@
-import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { createRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
+import { useRef } from 'react'
 import { rootRoute } from '../router'
 import { useCart } from '../cart/cart-provider'
 import { createOrder } from '../lib/api'
+import { getApiErrorMessage, getSession, sessionQueryKey } from '../lib/session'
+import { queryClient } from '../lib/query-client'
 
 export const checkoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/checkout',
+  beforeLoad: async () => {
+    const user = await queryClient.ensureQueryData({
+      queryKey: sessionQueryKey,
+      queryFn: getSession,
+    })
+    if (!user) {
+      throw redirect({ to: '/login', search: { redirect: '/checkout' } })
+    }
+  },
   component: CheckoutPage,
 })
 
 function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, totals, clear } = useCart()
-  const [authenticated] = useState(() => Boolean(localStorage.getItem('auth-token')))
+  const { items, totals, removePurchased } = useCart()
+  const idempotency = useRef<{ fingerprint: string; key: string } | null>(null)
   const mutation = useMutation({
-    mutationFn: () => createOrder(items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity }))),
+    mutationFn: ({ purchased, key }: { purchased: Array<{ nftId: string; quantity: number }>; key: string }) =>
+      createOrder(purchased, key),
     onSuccess: (order) => {
-      clear()
+      removePurchased(order.items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity })))
       void navigate({ to: '/orders/$orderId', params: { orderId: order.id } })
     },
   })
-
-  if (!authenticated) {
-    return (
-      <div className="mx-auto max-w-xl px-5 py-24 text-center">
-        <h1 className="text-3xl font-semibold">Entre para finalizar o pedido</h1>
-        <p className="mt-3 text-neutral-500">Sua sessão é necessária para criar e acompanhar o pedido.</p>
-        <Link to="/login" className="mt-6 inline-flex rounded-full bg-[#191816] px-5 py-3 text-sm font-medium text-white">
-          Entrar na conta
-        </Link>
-      </div>
-    )
-  }
 
   if (items.length === 0) {
     return (
@@ -44,6 +44,16 @@ function CheckoutPage() {
         </Link>
       </div>
     )
+  }
+
+  function submitOrder() {
+    const purchased = items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity }))
+    const fingerprint = JSON.stringify(purchased)
+    if (idempotency.current?.fingerprint !== fingerprint) {
+      idempotency.current = { fingerprint, key: crypto.randomUUID() }
+    }
+    const key = idempotency.current.key
+    mutation.mutate({ purchased, key })
   }
 
   return (
@@ -73,11 +83,15 @@ function CheckoutPage() {
           ))}
         </span>
       </div>
-      {mutation.isError && <p role="alert" className="mt-4 text-sm text-red-700">{mutation.error.message}</p>}
+      {mutation.isError && (
+        <p role="alert" className="mt-4 text-sm text-red-700">
+          {getApiErrorMessage(mutation.error, 'Não foi possível criar o pedido.')}
+        </p>
+      )}
       <button
         type="button"
         disabled={mutation.isPending}
-        onClick={() => mutation.mutate()}
+        onClick={submitOrder}
         className="mt-8 w-full rounded-xl bg-[#191816] px-6 py-4 font-medium text-white disabled:opacity-60"
       >
         {mutation.isPending ? 'Criando pedido…' : 'Confirmar pedido'}

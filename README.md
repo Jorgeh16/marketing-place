@@ -1,6 +1,6 @@
 # NFT Marketplace
 
-Base do projeto criada com Vite, React e TypeScript, com Tailwind CSS e shadcn/ui.
+Marketplace de demonstração criado com Vite, React e TypeScript, com Tailwind CSS e shadcn/ui.
 
 ## Executar
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Copie `.env.example` para `.env` e ajuste `VITE_API_URL` para apontar para a API.
+Copie `.env.example` para `.env` e ajuste `VITE_API_URL` para apontar para a API, se necessário.
 
 ## Stack configurada
 
@@ -18,7 +18,15 @@ Copie `.env.example` para `.env` e ajuste `VITE_API_URL` para apontar para a API
 - Axios em `src/lib/axios.ts`
 - Tailwind CSS v4 e shadcn/ui
 
-O projeto está apenas configurado; nenhuma tela ou rota de aplicação foi criada.
+O MSW simula catálogo, autenticação, sessão e pedidos durante o desenvolvimento.
+
+## Contas de demonstração
+
+- `demo@example.com` / `demo123`
+- `collector@example.com` / `collect123`
+
+O token de sessão é salvo no navegador; a senha não é persistida. O cadastro e os pedidos
+são simulados e não realizam cobranças reais.
 
 ## Testes E2E
 

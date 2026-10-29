@@ -13,6 +13,7 @@ interface CartContextValue {
   add: (nft: NFT) => void
   remove: (nftId: string) => void
   setQuantity: (nftId: string, quantity: number) => void
+  removePurchased: (items: Array<{ nftId: string; quantity: number }>) => void
   clear: () => void
 }
 
@@ -72,6 +73,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setItems((current) => current.map((item) =>
         item.nft.id === nftId ? { ...item, quantity } : item,
       ))
+    },
+    removePurchased: (purchased) => {
+      const quantities = new Map(purchased.map(({ nftId, quantity }) => [nftId, quantity]))
+      setItems((current) => current.flatMap((item) => {
+        const remaining = item.quantity - (quantities.get(item.nft.id) ?? 0)
+        return remaining > 0 ? [{ ...item, quantity: remaining }] : []
+      }))
     },
     clear: () => setItems([]),
   }), [items])
