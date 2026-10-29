@@ -1,5 +1,13 @@
 import { io } from 'socket.io-client'
-import type { NFT, OrderStatus } from '../types/nft'
+import type { OrderStatus } from '../types/nft'
+
+export interface NFTUpdate {
+  id: string
+  version: number
+  price?: string | number
+  likes?: number
+  eventId?: string
+}
 
 export function connectToOrder(orderId: string, onStatus: (status: OrderStatus) => void) {
   const url = getSocketUrl()
@@ -18,7 +26,7 @@ export function connectToOrder(orderId: string, onStatus: (status: OrderStatus) 
   return socket
 }
 
-export function connectToNFT(nftId: string, onUpdate: (nft: Partial<NFT>) => void) {
+export function connectToNFT(nftId: string, onUpdate: (nft: NFTUpdate) => void) {
   const url = getSocketUrl()
   if (!url) return null
 
@@ -28,10 +36,35 @@ export function connectToNFT(nftId: string, onUpdate: (nft: Partial<NFT>) => voi
   })
 
   socket.on('connect', () => socket.emit('nft:watch', nftId))
-  socket.on('nft.updated', (update: Partial<NFT> & { id: string }) => {
-    if (update.id === nftId) onUpdate(update)
+  socket.on('nft.updated', (update: NFTUpdate) => {
+    if (update.id === nftId) {
+      const nftUpdate = {
+        id: update.id,
+        version: update.version,
+        ...(update.price === undefined ? {} : { price: String(update.price) }),
+        ...(update.likes === undefined ? {} : { likes: update.likes }),
+      }
+      onUpdate(nftUpdate)
+    }
   })
 
+  return socket
+}
+
+export function connectToNFTUpdates(onUpdate: (update: NFTUpdate) => void) {
+  const url = getSocketUrl()
+  if (!url) return null
+
+  const socket = io(url, {
+    reconnection: true,
+    reconnectionAttempts: 5,
+  })
+
+  socket.on('nft.updated', (update: NFTUpdate) => {
+    const { eventId, ...nftUpdate } = update
+    onUpdate(nftUpdate)
+    if (update.eventId) socket.emit('nft.updated:ack', update.eventId)
+  })
   return socket
 }
 

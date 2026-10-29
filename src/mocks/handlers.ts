@@ -17,6 +17,24 @@ const demoUser = users.get('demo@example.com')!.user
 const revokedSessions = new Set<string>()
 const orderOwners = new Map<string, string>()
 const idempotentOrders = new Map<string, { fingerprint: string; order: Order }>()
+let orderCount = 0
+
+function resetMockState() {
+  orders.clear()
+  orderOwners.clear()
+  idempotentOrders.clear()
+  revokedSessions.clear()
+  orderCount = 0
+  users.clear()
+  users.set('demo@example.com', {
+    user: { id: 'user-demo', name: 'NFT Collector', email: 'demo@example.com' },
+    password: 'demo123',
+  })
+  users.set('collector@example.com', {
+    user: { id: 'user-collector', name: 'Alex Morgan', email: 'collector@example.com' },
+    password: 'collect123',
+  })
+}
 
 function getAuthenticatedUser(request: Request): User | null {
   const authorization = request.headers.get('authorization')
@@ -55,11 +73,24 @@ function createSession(user: User) {
 }
 
 export const handlers = [
+  http.post('*/api/test/reset', () => {
+    resetMockState()
+    return HttpResponse.json({ reset: true })
+  }),
+  http.get('*/api/test/state', () => HttpResponse.json({ orderCount })),
+  http.post('*/api/test/reset', () => {
+    resetMockState()
+    return HttpResponse.json({ reset: true })
+  }),
+  http.get('*/api/test/state', () => HttpResponse.json({ orderCount })),
   http.get('*/api/nfts', ({ request }) => {
     const url = new URL(request.url)
     const query = url.searchParams.get('q')?.trim().toLocaleLowerCase() ?? ''
     const collection = url.searchParams.get('collection') ?? ''
     const blockchain = url.searchParams.get('blockchain') ?? ''
+    const category = url.searchParams.get('category') ?? ''
+    const rarity = url.searchParams.get('rarity') ?? ''
+    const availability = url.searchParams.get('availability') ?? ''
     const sort = url.searchParams.get('sort') ?? 'newest'
     const page = Math.max(1, Math.floor(Number(url.searchParams.get('page')) || 1))
     const pageSize = Math.min(100, Math.max(1, Math.floor(Number(url.searchParams.get('limit')) || 12)))
@@ -71,12 +102,18 @@ export const handlers = [
         return (
           matchesQuery &&
           (!collection || nft.collection === collection) &&
-          (!blockchain || nft.blockchain === blockchain)
+          (!blockchain || nft.blockchain === blockchain) &&
+          (!category || nft.category === category) &&
+          (!rarity || nft.rarity === rarity) &&
+          (!availability ||
+            (availability === 'sold-out' && nft.stock === 0) ||
+            (availability === 'low-stock' && nft.stock > 0 && nft.stock <= 3) ||
+            (availability === 'available' && nft.stock > 3))
         )
       })
       .sort((first, second) => {
-        if (sort === 'price-asc') return first.price - second.price
-        if (sort === 'price-desc') return second.price - first.price
+        if (sort === 'price-asc') return Number(first.price) - Number(second.price)
+        if (sort === 'price-desc') return Number(second.price) - Number(first.price)
         return second.createdAt.localeCompare(first.createdAt)
       })
 
@@ -151,7 +188,9 @@ export const handlers = [
     if (
       requestItems.length === 0 ||
       requestItems.some(({ nftId, quantity }) =>
-        !nfts.some((nft) => nft.id === nftId) || !Number.isInteger(quantity) || quantity < 1,
+        !nfts.some((nft) => nft.id === nftId && nft.stock >= quantity) ||
+        !Number.isInteger(quantity) ||
+        quantity < 1,
       )
     ) {
       return HttpResponse.json({ message: 'O pedido contém itens inválidos.' }, { status: 400 })
@@ -178,7 +217,7 @@ export const handlers = [
     const totals = items.reduce((result, item) => {
       result.set(
         item.nft.currency,
-        (result.get(item.nft.currency) ?? 0) + item.nft.price * item.quantity,
+        (result.get(item.nft.currency) ?? 0) + Number(item.nft.price) * item.quantity,
       )
       return result
     }, new Map<NFT['currency'], number>())
@@ -195,6 +234,7 @@ export const handlers = [
     orders.set(order.id, order)
     orderOwners.set(order.id, user.id)
     idempotentOrders.set(idempotencyKey, { fingerprint, order })
+    orderCount += 1
     return HttpResponse.json(order, { status: 201 })
   }),
   http.get('*/api/orders/:id', ({ params, request }) => {
@@ -242,7 +282,7 @@ export const handlers = [
     const totals = items.reduce((result, item) => {
       result.set(
         item.nft.currency,
-        (result.get(item.nft.currency) ?? 0) + item.nft.price * item.quantity,
+        (result.get(item.nft.currency) ?? 0) + Number(item.nft.price) * item.quantity,
       )
       return result
     }, new Map<NFT['currency'], number>())

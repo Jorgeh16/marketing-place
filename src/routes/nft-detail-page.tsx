@@ -2,10 +2,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, Heart, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { rootRoute } from '../router'
+import { rootRoute } from '../root-route'
 import { getNFT } from '../lib/api'
 import { useCart } from '../cart/cart-provider'
 import { connectToNFT } from '../lib/order-socket'
+import { formatPrice } from '../lib/format-price'
 
 export const nftDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -26,9 +27,14 @@ function NFTDetailPage() {
 
   useEffect(() => {
     const socket = connectToNFT(nftId, (update) => {
-      queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) =>
-        current ? { ...current, ...update } : current,
-      )
+      queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) => {
+        if (!current || update.version <= (current.version ?? 1)) return current
+        return {
+          ...current,
+          ...update,
+          price: update.price === undefined ? current.price : String(update.price),
+        }
+      })
     })
 
     return () => {
@@ -70,7 +76,7 @@ function NFTDetailPage() {
       </Link>
       <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <div className="overflow-hidden rounded-3xl bg-neutral-100">
-          <img src={nft.image} alt={nft.name} className="aspect-square size-full object-cover" />
+          <img src={nft.image} alt={nft.imageAlt} width={600} height={600} className="aspect-square size-full object-cover" />
         </div>
         <section className="flex flex-col justify-center">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-violet-800">
@@ -79,6 +85,7 @@ function NFTDetailPage() {
             {nft.blockchain}
           </div>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{nft.name}</h1>
+          <p className="mt-2 text-sm text-neutral-500">{nft.category} · {nft.rarity}</p>
           <p className="mt-5 leading-7 text-neutral-600">{nft.description}</p>
 
           <div className="mt-8 flex items-center justify-between rounded-2xl border border-black/10 bg-white p-5">
@@ -96,19 +103,23 @@ function NFTDetailPage() {
           <div className="mt-4 rounded-2xl bg-[#eee9e1] p-5">
             <p className="text-xs text-neutral-500">Preço atual</p>
             <p className="mt-1 text-3xl font-semibold">
-              {nft.price.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}{' '}
+              {formatPrice(nft.price)}{' '}
               <span className="text-base text-neutral-500">{nft.currency}</span>
+            </p>
+            <p className="mt-2 text-sm text-neutral-600">
+              {nft.stock === 0 ? 'Esgotado' : nft.stock <= 3 ? `Últimas unidades: ${nft.stock}` : `Disponível: ${nft.stock}`}
             </p>
           </div>
           <button
             type="button"
+            disabled={nft.stock === 0}
             onClick={() => {
               add(nft)
               setAdded(true)
             }}
             className="mt-5 w-full rounded-xl bg-[#191816] px-6 py-4 font-medium text-white transition hover:bg-neutral-700"
           >
-            {added ? 'Adicionado ao carrinho' : 'Adicionar ao carrinho'}
+            {nft.stock === 0 ? 'Esgotado' : added ? 'Adicionado ao carrinho' : 'Adicionar ao carrinho'}
           </button>
           <p className="mt-4 inline-flex items-center justify-center gap-2 text-xs text-neutral-500">
             <ShieldCheck aria-hidden="true" className="size-4" />

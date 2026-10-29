@@ -3,8 +3,13 @@ export interface NFT {
   name: string
   description: string
   image: string
-  price: number
+  price: string
+  version?: number
   currency: 'ETH' | 'SOL' | 'MATIC'
+  category: string
+  rarity: 'Comum' | 'Incomum' | 'Raro' | 'Épico' | 'Lendário'
+  stock: number
+  imageAlt: string
   creator: {
     name: string
     username: string

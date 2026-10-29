@@ -1,7 +1,8 @@
 import { createRoute, Link } from '@tanstack/react-router'
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
-import { rootRoute } from '../router'
+import { rootRoute } from '../root-route'
 import { useCart } from '../cart/cart-provider'
+import { formatPrice } from '../lib/format-price'
 
 export const cartRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -10,7 +11,8 @@ export const cartRoute = createRoute({
 })
 
 function CartPage() {
-  const { items, totals, remove, setQuantity } = useCart()
+  const { items, totals, remove, setQuantity, acceptPrice } = useCart()
+  const hasUnacceptedPrice = items.some(({ nft, acceptedVersion }) => (nft.version ?? 1) > acceptedVersion)
 
   return (
     <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16">
@@ -32,16 +34,31 @@ function CartPage() {
       ) : (
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4">
-            {items.map(({ nft, quantity }) => (
+            {items.map(({ nft, quantity, acceptedVersion }) => (
               <article key={nft.id} className="flex gap-4 rounded-2xl border border-black/5 bg-white p-4 sm:gap-6">
-                <img src={nft.image} alt={nft.name} className="size-24 rounded-xl object-cover sm:size-32" />
+                <img src={nft.image} alt={nft.imageAlt} width={600} height={600} className="size-24 rounded-xl object-cover sm:size-32" />
                 <div className="flex min-w-0 flex-1 flex-col justify-between sm:flex-row sm:items-center">
                   <div className="min-w-0">
                     <h2 className="truncate font-semibold">{nft.name}</h2>
                     <p className="mt-1 text-sm text-neutral-500">@{nft.creator.username}</p>
                     <p className="mt-3 font-medium">
-                      {nft.price.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {nft.currency}
+                      {formatPrice(nft.price)} {nft.currency}
                     </p>
+                    {(nft.version ?? 1) > acceptedVersion && (
+                      <div role="alert" className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                        <p>O preço de {nft.name} foi atualizado.</p>
+                        <p className="mt-1 font-medium">
+                          Novo preço: {formatPrice(nft.price)} {nft.currency}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => acceptPrice(nft.id)}
+                          className="mt-2 font-semibold underline"
+                        >
+                          Aceitar novo preço
+                        </button>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 flex items-center gap-2 sm:mt-0">
                     <button
@@ -58,6 +75,7 @@ function CartPage() {
                       type="button"
                       aria-label={`Aumentar quantidade de ${nft.name}`}
                       onClick={() => setQuantity(nft.id, quantity + 1)}
+                      disabled={quantity >= nft.stock}
                       className="rounded-full border border-black/10 p-2"
                     >
                       <Plus aria-hidden="true" className="size-4" />
@@ -92,6 +110,10 @@ function CartPage() {
             </p>
             <Link
               to="/checkout"
+              aria-disabled={hasUnacceptedPrice}
+              onClick={(event) => {
+                if (hasUnacceptedPrice) event.preventDefault()
+              }}
               className="mt-6 flex w-full items-center justify-center rounded-xl bg-[#191816] px-5 py-3.5 text-sm font-medium text-white hover:bg-neutral-700"
             >
               Continuar para pagamento

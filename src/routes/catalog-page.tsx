@@ -7,7 +7,8 @@ import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Skeleton } from '../components/ui/skeleton'
 import { api } from '../lib/axios'
-import { rootRoute } from '../router'
+import { formatPrice } from '../lib/format-price'
+import { rootRoute } from '../root-route'
 import type { NFT, NFTPage } from '../types/nft'
 
 const pageSize = 12
@@ -33,7 +34,7 @@ export const catalogRoute = createRoute({
 })
 
 async function getNFTs(search: CatalogSearch) {
-  const { data } = await api.get<NFTPage>('/nfts', {
+  const { data } = await api.get<unknown>('/nfts', {
     params: {
       q: search.q,
       sort: search.sort,
@@ -42,7 +43,46 @@ async function getNFTs(search: CatalogSearch) {
     },
   })
 
+  if (!isNFTPage(data)) {
+    throw new Error('A resposta do catálogo não está no formato esperado.')
+  }
+
   return data
+}
+
+function isNFTPage(value: unknown): value is NFTPage {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('items' in value) || !Array.isArray(value.items) || !value.items.every(isNFT)) return false
+  return (
+    'total' in value && typeof value.total === 'number' && Number.isFinite(value.total) &&
+    'page' in value && typeof value.page === 'number' && Number.isFinite(value.page) &&
+    'pageSize' in value && typeof value.pageSize === 'number' && Number.isFinite(value.pageSize) &&
+    'totalPages' in value && typeof value.totalPages === 'number' && Number.isFinite(value.totalPages)
+  )
+}
+
+function isNFT(value: unknown): value is NFT {
+  if (typeof value !== 'object' || value === null) return false
+  if (!('creator' in value) || typeof value.creator !== 'object' || value.creator === null) return false
+  if (!('name' in value.creator) || typeof value.creator.name !== 'string') return false
+  if (!('username' in value.creator) || typeof value.creator.username !== 'string') return false
+  return (
+    'id' in value && typeof value.id === 'string' &&
+    'name' in value && typeof value.name === 'string' &&
+    'description' in value && typeof value.description === 'string' &&
+    'image' in value && typeof value.image === 'string' &&
+    'imageAlt' in value && typeof value.imageAlt === 'string' &&
+    'price' in value && typeof value.price === 'string' && Number.isFinite(Number(value.price)) &&
+    'currency' in value && ['ETH', 'SOL', 'MATIC'].includes(String(value.currency)) &&
+    'category' in value && typeof value.category === 'string' &&
+    'rarity' in value && ['Comum', 'Incomum', 'Raro', 'Épico', 'Lendário'].includes(String(value.rarity)) &&
+    'stock' in value && typeof value.stock === 'number' &&
+    'collection' in value && typeof value.collection === 'string' &&
+    'blockchain' in value && ['Ethereum', 'Solana', 'Polygon'].includes(String(value.blockchain)) &&
+    'tokenId' in value && typeof value.tokenId === 'string' &&
+    'likes' in value && typeof value.likes === 'number' &&
+    'createdAt' in value && typeof value.createdAt === 'string'
+  )
 }
 
 function CatalogPage() {
@@ -120,7 +160,7 @@ function CatalogPage() {
         >
           {isPending
             ? Array.from({ length: 8 }, (_, index) => <NFTCardSkeleton key={index} />)
-            : data?.items.map((nft) => <NFTCard key={nft.id} nft={nft} />)}
+            : data?.items?.map((nft) => <NFTCard key={nft.id} nft={nft} />)}
         </div>
       )}
 
@@ -161,7 +201,9 @@ function NFTCard({ nft }: { nft: NFT }) {
     <Card className="overflow-hidden p-0 transition-shadow hover:shadow-lg">
       <img
         src={nft.image}
-        alt={nft.name}
+        alt={nft.imageAlt}
+        width={600}
+        height={600}
         loading="lazy"
         className="aspect-square w-full object-cover"
       />
@@ -169,11 +211,16 @@ function NFTCard({ nft }: { nft: NFT }) {
         <CardTitle>{nft.name}</CardTitle>
       </CardHeader>
       <CardContent className="pb-4">
+        <p className="text-sm text-neutral-500">{nft.collection} · {nft.category} · {nft.rarity}</p>
         <p className="font-semibold">
-          {nft.price.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {nft.currency}
+          {formatPrice(nft.price)} {nft.currency}
+        </p>
+        <p className="mt-1 text-sm text-neutral-500">
+          {nft.stock === 0 ? 'Esgotado' : nft.stock <= 3 ? `Últimas unidades: ${nft.stock}` : `Disponível: ${nft.stock}`}
         </p>
         <Button
           type="button"
+          disabled={nft.stock === 0}
           onClick={() => {
             add(nft)
             setAdded(true)
@@ -181,7 +228,7 @@ function NFTCard({ nft }: { nft: NFT }) {
           className="mt-4 h-11 w-full rounded-xl bg-[#191816] text-white hover:bg-neutral-700"
         >
           <ShoppingCart aria-hidden="true" />
-          {added ? 'Adicionado ao carrinho' : 'Adicionar ao carrinho'}
+          {nft.stock === 0 ? 'Esgotado' : added ? 'Adicionado ao carrinho' : 'Adicionar ao carrinho'}
         </Button>
       </CardContent>
     </Card>
