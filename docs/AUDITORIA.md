@@ -1,57 +1,59 @@
 # Auditoria do desafio — NFT Marketplace
 
-**Data:** 29/10/2026  
-**Enunciado:** [`junglegaming/frontend-challenge` — README.md](https://github.com/junglegaming/frontend-challenge/blob/main/README.md) (SHA consultado: `7e0beff272078e43d70a4fe009033d41a99bf1d5`)  
+**Atualizada:** 29/10/2026  
+**Enunciado:** [`junglegaming/frontend-challenge`](https://github.com/junglegaming/frontend-challenge/blob/main/README.md)  
 **Aplicação publicada:** <https://marketing-place-tset.vercel.app/>
 
-Esta auditoria compara o repositório com as seções 1 a 12 do enunciado oficial.
-Os status avaliam o que está implementado e comprovável neste checkout; não
-representam aprovação do avaliador do desafio. A URL pública respondeu e foi
-percorrida em uma sessão limpa do navegador integrado. Nenhum código funcional
-foi alterado para esta auditoria.
+Esta tabela resume as seções 1–12 do desafio com base no checkout atual. Um
+status completo significa que há implementação/evidência local correspondente;
+não equivale a uma aprovação externa. A publicação pública não foi submetida a
+uma nova execução completa dos fluxos nesta atualização.
 
-| Requisito | Status | Arquivo(s) que comprovam | O que falta |
-|---|---|---|---|
-| **1. Escopo — descoberta, compra, conta e telas desktop/mobile** | **parcial** | `src/routes/`, `src/components/app-layout.tsx`, `e2e/marketplace.spec.ts`, `ARCHITECTURE.md` | Os principais fluxos simulados existem. Busca/filtros completos, galeria e edição/quantidade na página do NFT não estão todos implementados; não há comprovação automatizada da responsividade de todas as telas. A substituição das artes do Figma está registrada em `ARCHITECTURE.md`. |
-| **2. Stack obrigatória — React, TypeScript, Router, Query, Axios, REST, Socket.IO, Tailwind, shadcn, MSW, Playwright e Lighthouse** | **parcial** | `package.json`, `src/router.tsx`, `src/lib/api.ts`, `src/lib/axios.ts`, `src/mocks/`, `playwright.config.ts` | A stack funcional está presente, incluindo `@mswjs/socket.io-binding`; Lighthouse e sua configuração não existem. |
-| **3. Tela inicial, catálogo e filtros combináveis com URL** | **parcial** | `src/routes/catalog-page.tsx`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Busca, ordenação e paginação sobrevivem a refresh e são testadas. A interface não oferece filtros combináveis por coleção, blockchain, categoria, raridade ou disponibilidade, embora os handlers aceitem esses parâmetros. |
-| **3. Detalhe do NFT, acesso direto, indisponibilidade e limite de quantidade** | **parcial** | `src/routes/nft-detail-page.tsx`, `src/cart/cart-provider.tsx`, `e2e/marketplace.spec.ts` | Acesso direto, item inexistente, estoque e favoritos são tratados. Falta galeria e escolha de edição/quantidade no detalhe; a quantidade é ajustada no carrinho. |
-| **3. Carrinho, quantidades, remoção, cupom, taxas e total** | **completo** | `src/routes/cart-page.tsx`, `src/cart/cart-provider.tsx`, `src/lib/api.ts`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Os fluxos simulados de carrinho e cotação existem. Não há recurso REST próprio de carrinho; seu estado é mantido pelo cliente. |
-| **3. Pagamento e confirmação, com revisão, estados e recibo snapshot** | **parcial** | `src/routes/checkout-page.tsx`, `src/routes/order-page.tsx`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Revisão, cotação, resultados simulado confirmado/recusado, idempotência e recibo estão implementados. A tela mostra o identificador do pedido, mas não uma referência/identificação simulada de transação como pede o enunciado. |
-| **3. Login, cadastro, perfil e carteiras** | **parcial** | `src/routes/login-page.tsx`, `src/routes/register-page.tsx`, `src/routes/profile-page.tsx`, `src/mocks/handlers.ts` | As telas e operações simuladas existem. A persistência entre recargas de contas cadastradas, perfil, carteiras e favoritos não é demonstrada; esses dados são mantidos em mapas em memória nos handlers. |
-| **4. Integração, tipagem, estados, cache, erros e proteção de rotas** | **parcial** | `src/lib/api.ts`, `src/lib/axios.ts`, `src/lib/query-client.ts`, `src/lib/session.ts`, `src/router.tsx`, `src/routes/` | Router, Query, Axios, validações e cache são usados. A política de cache/retries, contratos completos e recuperação/isolamento de todos os dados por usuário não estão documentados ou cobertos por testes suficientes; respostas obsoletas e troca de usuário precisam de validação mais ampla. |
-| **4. Atualização otimista com rollback** | **completo** | `src/components/favorite-button.tsx`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Favoritar/ desfavoritar atualiza otimisticamente e restaura o estado após falha; há E2E dessa falha. |
-| **5. Contratos REST documentados para sessão, NFTs, favoritos, carrinho, cotação, pedidos, perfil e carteiras** | **parcial** | `src/lib/api.ts`, `src/mocks/handlers.ts`, `src/types/nft.ts`, `docs/development.md` | A maioria das operações tem funções e handlers; carrinho não tem endpoints REST próprios. Falta documentação de contratos, payloads, respostas e erros. |
-| **5. Idempotência e erros de validação/autorização/conflito** | **completo** | `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Chave idempotente, replay e conflito de conteúdo diferente estão implementados e testados. |
-| **6. MSW na camada de rede com cenários reproduzíveis, estado coerente e reset** | **parcial** | `src/mocks/handlers.ts`, `src/mocks/socket-binding.ts`, `src/components/dev-scenario-panel.tsx`, `src/main.tsx`, `.env.production`, `e2e/marketplace.spec.ts` | A simulação cobre latência, falhas HTTP, sessão expirada, cupons, estoque, preço, pedido e pagamento; o reset é testado. Parte dos dados é mantida apenas em memória e não persiste após recarga, limitando favoritos, alterações de perfil/carteiras, contas novas e pedidos. Nem todos os cenários têm teste dedicado. |
-| **6. Integração Socket.IO simulada exercitando `socket.io-client`** | **parcial** | `src/mocks/socket-binding.ts`, `src/lib/order-socket.ts`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts`, `docs/development.md` | O cliente Socket.IO e a ligação MSW existem; testes verificam eventos de NFT. A emissão de `order.updated` é condicionada a `import.meta.env.DEV` nos handlers, portanto o fluxo publicado não comprova atualização de pedido via evento Socket.IO; a confirmação pode ocorrer pelo polling REST. |
-| **7. `nft.updated`, `order.updated`, versões, duplicatas, eventos antigos e reconciliação REST** | **parcial** | `src/lib/order-socket.ts`, `src/mocks/socket-binding.ts`, `src/cart/cart-provider.tsx`, `src/routes/nft-detail-page.tsx`, `src/routes/order-page.tsx`, `e2e/marketplace.spec.ts` | Duplicatas e versões antigas de NFT são testadas; há reconciliação após reconexão em alguns fluxos. Falta demonstrar evento `order.updated` no deploy, interrupção de conexão com pedido pendente, retomada sem duplicar compra e isolamento de eventos entre sessões/usuários. |
-| **8. Responsividade desktop/tablet/mobile, larguras 390/768/1440 e fidelidade visual** | **parcial** | `src/index.css`, `src/routes/`, `src/components/`, `playwright.config.ts`, `ARCHITECTURE.md` | O layout usa breakpoints Tailwind e a URL publicada foi inspecionada em 390 px. Não há execução automatizada nos três tamanhos para todas as telas nem comparação de fidelidade com baselines do Figma. |
-| **8. Skeleton shimmer, dimensões estáveis e movimento reduzido** | **parcial** | `src/components/nft-card-skeleton.tsx`, `src/components/ui/skeleton.tsx`, `src/routes/nft-detail-page.tsx`, `src/routes/order-page.tsx`, `src/routes/catalog-page.tsx` | Existem skeletons com `animate-pulse`, mas não o shimmer especificado. Não encontrei tratamento explícito de `prefers-reduced-motion`; resumo do carrinho também não apresenta skeleton próprio. |
-| **8. Acessibilidade: teclado, foco, semântica, erros, textos alternativos e feedback** | **parcial** | `src/routes/`, `src/components/`, `src/index.css`, `e2e/marketplace.spec.ts` | Há labels, alt text, mensagens e estilos de foco em vários controles. Não há testes E2E de navegação por teclado/foco, e não há cobertura de foco em diálogos/drawers; esses componentes não estão evidenciados. Contraste e zoom não foram auditados com ferramenta dedicada. |
-| **9. Playwright — fluxos principais, falhas e isolamento de estado** | **parcial** | `e2e/marketplace.spec.ts`, `playwright.config.ts`, `package.json` | Existem 21 testes E2E e reset de estado em `beforeEach`. A matriz não cobre todos os 12 cenários do enunciado; faltam especificamente validações abrangentes de expiração/troca de usuário, timeout após criação e recuperação, desconexão com pedido pendente, teclado/foco e skeleton/falha/retry. |
-| **9. Chromium desktop e mobile, regressão visual com baselines, relatório HTML e traces** | **parcial** | `playwright.config.ts`, `e2e/marketplace.spec.ts`, `.gitignore` | Playwright roda somente o projeto Chromium desktop; não há projeto mobile, chamadas `toHaveScreenshot` nem baselines versionadas. Há reporter HTML e traces em falhas, mas `playwright-report/` é ignorado e o relatório gerado localmente não está versionado. |
-| **10. Lighthouse: início/detalhe, mobile/desktop, três execuções e medianas** | **ausente** | Não há arquivo de configuração nem scripts de Lighthouse em `package.json`. | Implementar a configuração e os comandos de auditoria solicitados. |
-| **10. Metas Lighthouse, LCP/CLS/TBT, versões, ambiente e relatórios HTML/JSON** | **ausente** | Não há relatórios Lighthouse em `docs/` nem configuração encontrada. | Medir e registrar resultados, versões/ambiente e métricas; justificar metas não atingidas. |
-| **11. Evidências para avaliação dos critérios e pontuação** | **parcial** | `e2e/marketplace.spec.ts`, `ARCHITECTURE.md`, `README.md`, `playwright.config.ts` | Há evidências de fluxos, stack e arquitetura. Faltam evidências Lighthouse, regressão visual, mobile automatizado, contratos REST documentados e cobertura de alguns critérios eliminatórios/edge cases; não há medição de pontuação. |
-| **12. Entrega reproduzível: código, lockfile, assets, mocks e testes** | **completo** | `package.json`, `package-lock.json`, `public/nfts/`, `src/mocks/`, `e2e/`, `README.md` | Build e Playwright foram executados com sucesso neste checkout. |
-| **12. Deploy público obrigatório, acesso direto e mocks funcionando** | **parcial** | `vercel.json`, `.env.production`, `public/mockServiceWorker.js`, `src/main.tsx`, `docs/development.md` | `https://marketing-place-tset.vercel.app/` e a rota direta de detalhe responderam; no navegador foram verificados catálogo, favorito com login, carrinho com cupom, checkout, pedido confirmado e início em viewport mobile de 390 px. A atualização Socket.IO de pedido publicada não foi comprovada e o estado mock de negócio se perde ao recarregar. |
-| **12. README com setup, variáveis, credenciais, cenários, reset, comandos e falhas** | **parcial** | `README.md`, `docs/development.md`, `src/components/dev-scenario-panel.tsx` | Setup básico, credenciais e comandos de build/lint/teste estão presentes. Faltam inventário e instruções para selecionar/reproduzir cada cenário; não há comandos de preview, typecheck isolado ou Lighthouse. A documentação diz que o painel só aparece em desenvolvimento, embora a aplicação publicada tenha sido testada separadamente. |
-| **12. `ARCHITECTURE.md` com contratos, sessão, carrinho, cache, eventos, limitações e decisões visuais** | **parcial** | `ARCHITECTURE.md`, `docs/development.md`, `src/lib/`, `src/mocks/` | O documento registra artes e inventário, mas não descreve contratos REST/eventos, política de sessão, persistência do carrinho, cache ou reconciliação REST/Socket.IO. |
+| Seção | Requisito | Status | Evidência | O que falta |
+|---|---|---|---|---|
+| 1 | Escopo de descoberta, compra e conta em telas responsivas | **parcial** | `src/routes/`, `src/components/`, `e2e/` | Há catálogo, detalhe, carrinho, checkout e perfil. Não há galeria/seleção de edição no detalhe; a fidelidade ao Figma não pode ser verificada sem os arquivos de design. |
+| 2 | Stack React/TypeScript, roteamento, cache, REST/Axios, Socket.IO, Tailwind/shadcn, MSW, Playwright e Lighthouse | **parcial** | `package.json`, `src/router.tsx`, `src/lib/`, `src/mocks/`, `playwright.config.ts`, `scripts/lighthouse.mjs` | A stack e o runner Lighthouse estão configurados. Falta concluir uma execução Lighthouse íntegra e guardar os relatórios requeridos. |
+| 3 | Fluxos e telas de catálogo, NFT, carrinho, checkout e conta | **parcial** | `src/routes/`, `src/cart/cart-provider.tsx`, `e2e/marketplace.spec.ts` | Busca, filtros combináveis, ordenação, paginação, favoritos, cupom, compra simulada e recibo existem. Faltam galeria/edição no detalhe e uma referência de transação simulada no recibo. |
+| 4 | Tipagem, estados, cache, erros, sessão e proteção de rotas | **parcial** | `src/lib/api.ts`, `src/lib/session.ts`, `src/lib/axios.ts`, `src/cart/cart-provider.tsx` | Há tratamento de sessão expirada, cache e carrinho separado por usuário. O backend é simulado no navegador; dados de cadastro, favoritos, perfil e carteiras não sobrevivem a uma recarga completa. |
+| 5 | Contratos REST, validação e idempotência | **parcial** | `ARCHITECTURE.md`, `src/lib/api.ts`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | Os contratos implementados e a idempotência estão documentados/testados. O carrinho não possui recurso REST próprio e as respostas são mocks, não uma API persistente. |
+| 6 | MSW, cenários reproduzíveis, estado coerente e reset | **parcial** | `src/mocks/handlers.ts`, `src/mocks/socket-binding.ts`, `src/components/dev-scenario-panel.tsx`, `docs/testing.md` | Os cenários e reset existem; pedidos pendentes/estoque recuperam-se via `localStorage`. Usuários, sessões, favoritos, perfil e carteiras são mapas em memória e reiniciam ao recarregar a página. |
+| 7 | Socket.IO, versões, duplicatas, eventos antigos, reconexão e isolamento | **parcial** | `src/lib/order-socket.ts`, `src/mocks/socket-binding.ts`, `src/mocks/handlers.ts`, `e2e/marketplace.spec.ts` | A lógica mock deduplica e ordena eventos, valida assinaturas e reconcilia pedidos via REST. Não há serviço Socket.IO externo configurado na publicação; atualizações públicas de pedido dependem de polling REST. |
+| 8 | Responsividade, acessibilidade, skeletons e regressão visual | **parcial** | `playwright.config.ts`, `e2e/responsive-visual.spec.ts`, `e2e/responsive-visual.spec.ts-snapshots/`, `src/components/` | Há baselines de início, detalhe, carrinho e revisão de pagamento em 390/768/1440 px, além de teste de teclado. Faltam auditoria completa de todas as telas/fluxos, redução de movimento e comparação com o Figma original. |
+| 9 | 12 cenários Playwright, isolamento, Chromium desktop/mobile, traces e relatório | **parcial** | `e2e/marketplace.spec.ts`, `e2e/responsive-visual.spec.ts`, `docs/testing.md`, `playwright.config.ts` | Os 12 cenários estão mapeados; reporter HTML e `retain-on-failure` estão configurados. A suíte completa não foi repetida nesta finalização por solicitação do usuário; os fluxos funcionais executam no projeto desktop e as baselines, nos três viewports. |
+| 10 | Lighthouse para início/detalhe, mobile/desktop, 3 medições, medianas e relatórios | **parcial** | `scripts/lighthouse.mjs`, `package.json`, `docs/lighthouse/README.md` | O runner coleta as categorias e LCP/CLS/TBT para calcular medianas. O Chromium terminou as tentativas com `TARGET_CRASHED`; os relatórios parciais foram removidos. Não há resultados completos nem justificativa baseada em uma matriz final de pontuação. |
+| 11 | Evidências e avaliação dos critérios do desafio | **parcial** | `docs/testing.md`, `docs/lighthouse/README.md`, `ARCHITECTURE.md`, `e2e/` | Há mapa de cenários, decisões e limitações. Falta a evidência Lighthouse íntegra e validação final completa da suíte e do deploy após a publicação. |
+| 12 | Entrega reproduzível, documentação, assets e deploy público | **parcial** | `README.md`, `ARCHITECTURE.md`, `docs/development.md`, `public/nfts/`, `vercel.json` | Build e lint passaram antes desta atualização; catálogo e detalhe público abriram. Após o push, ainda é necessário confirmar o novo deploy e executar a URL publicada em sessão limpa. |
 
 ## Lacunas priorizadas
 
-1. **Eliminatório — demonstrar todos os fluxos funcionais e dados isolados no deploy.** O fluxo público básico funcionou, mas registro/estado de conta, perfil, carteiras, favoritos e pedidos usam estruturas em memória; falta comprovar persistência após refresh e ausência de vazamento na troca de usuário.
-2. **Eliminatório — eventos reais no cliente Socket.IO da demonstração publicada.** `order.updated` não é emitido quando `import.meta.env.DEV` é falso. A confirmação pública foi observada, mas isso não comprova que veio do evento Socket.IO, pois a tela também consulta o pedido por polling.
-3. **Alta — cenários obrigatórios Playwright incompletos.** Acrescentar cobertura de timeout após criação/recuperação idempotente, pedido pendente durante desconexão, expiração e troca de usuário, teclado/foco e carregamento lento/falha/retry.
-4. **Alta — mobile e regressão visual não automatizados.** Configurar viewports mobile/tablet e baselines para início, detalhe, carrinho e pagamento; validar 390, 768 e 1440 px.
-5. **Alta — Lighthouse ausente.** Configurar as quatro combinações de página/perfil, três medições, medianas, metas e relatórios HTML/JSON com LCP, CLS e TBT.
-6. **Média — cobrir filtros e completar detalhe.** Implementar filtros combináveis sincronizados com URL; galeria, edição e quantidade/limites no detalhe; referência de transação simulada na confirmação.
-7. **Média — completar documentação.** Descrever contratos REST/eventos, política de sessão/cache/carrinho e cenários/reset; completar comandos exigidos no README.
+1. **Alta — Lighthouse verificável:** executar `npm run lighthouse` em um ambiente
+   estável, gerar as quatro combinações HTML/JSON e medianas; corrigir ou justificar
+   qualquer pontuação abaixo das metas Performance 90, Accessibility 95, Best
+   Practices 95 e SEO 90.
+2. **Alta — validação E2E final:** rodar a suíte Playwright completa, incluindo
+   fluxos desktop e regressão visual nos viewports desktop/tablet/mobile. Essa
+   execução foi interrompida a pedido do usuário nesta sessão.
+3. **Alta — confirmar a publicação:** verificar que a Vercel implantou o commit
+   final e repetir catálogo, detalhe, favoritos, carrinho/cupom, login, checkout e
+   pedido em sessão limpa.
+4. **Média — Socket.IO externo:** configurar/fornecer um servidor real somente se
+   o critério exigir atualização em tempo real fora do mock; hoje a publicação
+   não configura `VITE_SOCKET_URL`.
+5. **Média — completar detalhe e correspondência visual:** adicionar galeria e
+   edição/quantidade no detalhe se exigidas pelo enunciado e comparar com os
+   arquivos Figma quando disponíveis.
+6. **Média — persistência do mock de usuário:** tornar contas de demonstração,
+   favoritos, perfil e carteiras persistentes caso o avaliador exija que esses
+   dados sobrevivam a reload. O comportamento atual está documentado em
+   `ARCHITECTURE.md`.
 
-## Validações observadas
+## Validações desta atualização
 
 - `npm run build`: passou.
-- `npm run lint`: passou, com avisos de regras React/hooks.
-- `npx playwright test`: **21 testes passaram** em Chromium desktop.
-- URL pública: catálogo, favorito/login, carrinho/cupom `TESOURO10`, checkout e confirmação de pedido passaram no navegador integrado; a home também foi aberta em viewport de 390 px.
+- `npm run lint`: passou com avisos React/hooks já observados.
+- `node --check scripts/lighthouse.mjs`: passou antes da tentativa de auditoria.
+- Lighthouse: não concluído; o Chromium reportou `TARGET_CRASHED`. Nenhum relatório
+  parcial foi mantido como se fosse evidência válida.
+- Playwright completo: não executado novamente, conforme solicitação do usuário.
+- URL pública: catálogo e acesso direto ao detalhe foram abertos; não foi feita
+  nova execução pública de todos os fluxos.
