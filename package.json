@@ -7,9 +7,13 @@
     "dev": "vite",
     "dev:e2e": "vite --host 127.0.0.1 --port 4175 --strictPort",
     "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:visual": "playwright test e2e/responsive-visual.spec.ts",
+    "test:e2e:update-snapshots": "playwright test e2e/responsive-visual.spec.ts --update-snapshots",
+    "lighthouse": "npm run build && node scripts/lighthouse.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -34,6 +38,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "lighthouse": "^13.6.0",
     "msw": "^2.10.2",
     "oxlint": "^1.89.0",
     "shadcn": "^4.23.0",
