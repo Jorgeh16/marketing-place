@@ -1,38 +1,45 @@
 # NFT Marketplace
 
-Marketplace de demonstração criado com Vite, React e TypeScript, com Tailwind CSS e shadcn/ui.
+Marketplace demonstrativo de NFTs criado com Vite, React, TypeScript, Tailwind CSS e
+shadcn/ui. O catálogo, a autenticação, as carteiras e os pedidos usam dados simulados;
+nenhuma compra ou cobrança real é realizada.
 
-## Executar
+## Executar localmente
 
 ```bash
 npm install
 npm run dev
 ```
 
-Copie `.env.example` para `.env` e ajuste `VITE_API_URL` para apontar para a API, se necessário.
+O MSW é ativado automaticamente durante o desenvolvimento. `.env.example` contém
+valores de exemplo para `VITE_API_URL`; veja [docs/development.md](./docs/development.md)
+para configurar serviços externos e deploy.
 
-## Stack configurada
+## Funcionalidades demonstrativas
 
-- TanStack Router para rotas
-- TanStack Query para estado assíncrono
-- Axios em `src/lib/axios.ts`
-- Tailwind CSS v4 e shadcn/ui
-
-O MSW simula catálogo, autenticação, sessão e pedidos durante o desenvolvimento.
+- Catálogo com busca, ordenação e paginação sincronizadas com a URL
+- Detalhes de NFTs, carrinho persistido no navegador e favoritos
+- Cadastro, login, perfil, alteração de senha e carteiras mock
+- Cotação, cupom, checkout simulado, idempotência e recibo
+- Atualizações de preço e status de pedido via Socket.IO mock
+- Painel de cenários para testar erros e latência durante o desenvolvimento
 
 ## Contas de demonstração
 
 - `demo@example.com` / `demo123`
 - `collector@example.com` / `collect123`
 
-O token de sessão é salvo no navegador; a senha não é persistida. O cadastro e os pedidos
-são simulados e não realizam cobranças reais.
+As contas, sessões e dados de API são simulados e mantidos em memória. O token de
+demonstração fica no navegador; senhas não são gravadas no armazenamento local.
 
-## Testes E2E
-
-Os testes Playwright sobem o app com `npm run dev:e2e` na porta `4175` e ativam o MSW
-no navegador para usar os dados simulados.
+## Testes e validação
 
 ```bash
+npm run lint
+npm run build
 npm run test:e2e
 ```
+
+Os testes Playwright iniciam o app na porta `4175`, ativam o MSW e usam Chromium.
+Instale o navegador do Playwright uma vez por ambiente com
+`npx playwright install chromium`.

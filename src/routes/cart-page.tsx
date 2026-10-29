@@ -1,8 +1,12 @@
 import { createRoute, Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { rootRoute } from '../root-route'
 import { useCart } from '../cart/cart-provider'
 import { formatPrice } from '../lib/format-price'
+import { getQuote } from '../lib/api'
+import { getApiErrorMessage } from '../lib/session'
 
 export const cartRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -11,7 +15,18 @@ export const cartRoute = createRoute({
 })
 
 function CartPage() {
-  const { items, totals, remove, setQuantity, acceptPrice } = useCart()
+  const { items, remove, setQuantity, acceptPrice } = useCart()
+  const [couponInput, setCouponInput] = useState('')
+  const [coupon, setCoupon] = useState('')
+  const quote = useQuery({
+    queryKey: ['quote', items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity })), coupon],
+    queryFn: () => getQuote({
+      items: items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity })),
+      ...(coupon ? { coupon } : {}),
+    }),
+    enabled: items.length > 0,
+    retry: false,
+  })
   const hasUnacceptedPrice = items.some(({ nft, acceptedVersion }) => (nft.version ?? 1) > acceptedVersion)
 
   return (
@@ -95,24 +110,63 @@ function CartPage() {
           </div>
           <aside className="h-fit rounded-2xl border border-black/5 bg-white p-6">
             <h2 className="text-lg font-semibold">Resumo do pedido</h2>
+            <form
+              className="mt-5"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const nextCoupon = couponInput.trim()
+                setCoupon(nextCoupon)
+                localStorage.setItem('cart-coupon', nextCoupon)
+              }}
+            >
+              <label htmlFor="cart-coupon" className="text-sm font-medium">Cupom de desconto</label>
+              <div className="mt-2 flex gap-2">
+                <input
+                  id="cart-coupon"
+                  value={couponInput}
+                  onChange={(event) => setCouponInput(event.target.value)}
+                  placeholder="Digite seu cupom"
+                  className="min-w-0 flex-1 rounded-lg border border-black/10 px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-violet-700"
+                />
+                <button type="submit" className="rounded-lg border border-black/10 px-3 py-2 text-sm font-medium">
+                  Aplicar
+                </button>
+              </div>
+              {coupon && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoupon('')
+                    setCouponInput('')
+                    localStorage.removeItem('cart-coupon')
+                  }}
+                  className="mt-2 text-sm text-violet-800 underline"
+                >
+                  Remover cupom
+                </button>
+              )}
+              {coupon && quote.isError && (
+                <p role="alert" className="mt-2 text-sm text-red-700">
+                  {getApiErrorMessage(quote.error, 'Não foi possível aplicar o cupom.')}
+                </p>
+              )}
+            </form>
             <div className="mt-5 flex justify-between border-t border-black/5 pt-4 text-sm">
               <span className="text-neutral-500">Subtotal</span>
-              <span className="text-right font-semibold">
-                {totals.map(({ currency, amount }) => (
-                  <span key={currency} className="ml-2 whitespace-nowrap">
-                    {amount.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {currency}
-                  </span>
-                ))}
+              <span className="font-semibold">
+                {quote.data ? `${formatPrice(quote.data.subtotal)} ETH` : 'Calculando…'}
               </span>
             </div>
-            <p className="mt-3 text-xs leading-5 text-neutral-500">
-              Os preços e o resumo são exibidos nas moedas originais de cada rede.
-            </p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-neutral-500">Desconto</dt><dd>{quote.data ? `${formatPrice(quote.data.discount)} ETH` : '—'}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-neutral-500">Taxa de rede</dt><dd>{quote.data ? `${formatPrice(quote.data.networkFee)} ETH` : '—'}</dd></div>
+              <div className="flex justify-between gap-3 border-t border-black/5 pt-3 font-semibold"><dt>Total</dt><dd>{quote.data ? `${formatPrice(quote.data.total)} ETH` : '—'}</dd></div>
+            </dl>
             <Link
               to="/checkout"
-              aria-disabled={hasUnacceptedPrice}
+              aria-disabled={hasUnacceptedPrice || !quote.data || quote.isFetching}
               onClick={(event) => {
-                if (hasUnacceptedPrice) event.preventDefault()
+                if (hasUnacceptedPrice || !quote.data || quote.isFetching) event.preventDefault()
               }}
               className="mt-6 flex w-full items-center justify-center rounded-xl bg-[#191816] px-5 py-3.5 text-sm font-medium text-white hover:bg-neutral-700"
             >

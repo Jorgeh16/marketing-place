@@ -1,14 +1,14 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.tsx'
 
 async function startApplication() {
   if (import.meta.env.DEV || import.meta.env.VITE_ENABLE_MSW === 'true') {
     const { worker } = await import('./mocks/browser')
-    await worker.start({ onUnhandledFrame: 'bypass' })
+    await worker.start({ onUnhandledRequest: 'bypass' })
   }
 
+  const { default: App } = await import('./App.tsx')
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />

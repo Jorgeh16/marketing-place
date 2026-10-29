@@ -27,6 +27,7 @@ function RegisterPage() {
     mutationFn: () => register({ name, email, password }),
     onSuccess: ({ token, user }) => {
       localStorage.setItem('auth-token', token)
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { userId: user.id } }))
       queryClient.setQueryData(sessionQueryKey, user)
       void navigate({ to: redirectTo })
     },

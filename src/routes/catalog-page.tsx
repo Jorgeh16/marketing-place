@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { createRoute, useNavigate } from '@tanstack/react-router'
+import { createRoute, Link, useNavigate } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, Search, ShoppingCart } from 'lucide-react'
 import { useCart } from '../cart/cart-provider'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { FavoriteButton } from '../components/favorite-button'
 import { Skeleton } from '../components/ui/skeleton'
 import { api } from '../lib/axios'
 import { formatPrice } from '../lib/format-price'
@@ -198,17 +199,26 @@ function NFTCard({ nft }: { nft: NFT }) {
   const [added, setAdded] = useState(false)
 
   return (
-    <Card className="overflow-hidden p-0 transition-shadow hover:shadow-lg">
-      <img
-        src={nft.image}
-        alt={nft.imageAlt}
-        width={600}
-        height={600}
-        loading="lazy"
-        className="aspect-square w-full object-cover"
-      />
+    <Card className="relative overflow-hidden p-0 transition-shadow hover:shadow-lg">
+      <Link to="/nfts/$nftId" params={{ nftId: nft.id }} className="block">
+        <img
+          src={nft.image}
+          alt={nft.imageAlt}
+          width={600}
+          height={600}
+          loading="lazy"
+          className="aspect-square w-full object-cover"
+        />
+      </Link>
+      <div className="absolute right-3 top-3">
+        <FavoriteButton nftId={nft.id} />
+      </div>
       <CardHeader>
-        <CardTitle>{nft.name}</CardTitle>
+        <CardTitle>
+          <Link to="/nfts/$nftId" params={{ nftId: nft.id }} className="rounded-sm focus-visible:outline-2 focus-visible:outline-violet-700">
+            {nft.name}
+          </Link>
+        </CardTitle>
       </CardHeader>
       <CardContent className="pb-4">
         <p className="text-sm text-neutral-500">{nft.collection} · {nft.category} · {nft.rarity}</p>

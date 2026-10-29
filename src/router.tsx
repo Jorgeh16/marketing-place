@@ -6,6 +6,7 @@ import { checkoutRoute } from './routes/checkout-page'
 import { loginRoute } from './routes/login-page'
 import { orderRoute } from './routes/order-page'
 import { registerRoute } from './routes/register-page'
+import { profileRoute } from './routes/profile-page'
 import { rootRoute } from './root-route'
 
 const routeTree = rootRoute.addChildren([
@@ -15,6 +16,7 @@ const routeTree = rootRoute.addChildren([
   checkoutRoute,
   loginRoute,
   registerRoute,
+  profileRoute,
   orderRoute,
 ])
 

@@ -3,6 +3,7 @@ import { createRoute, Link } from '@tanstack/react-router'
 import { ArrowLeft, Heart, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { rootRoute } from '../root-route'
+import { FavoriteButton } from '../components/favorite-button'
 import { getNFT } from '../lib/api'
 import { useCart } from '../cart/cart-provider'
 import { connectToNFT } from '../lib/order-socket'
@@ -26,16 +27,28 @@ function NFTDetailPage() {
   })
 
   useEffect(() => {
-    const socket = connectToNFT(nftId, (update) => {
-      queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) => {
-        if (!current || update.version <= (current.version ?? 1)) return current
-        return {
-          ...current,
-          ...update,
-          price: update.price === undefined ? current.price : String(update.price),
-        }
-      })
-    })
+    const socket = connectToNFT(
+      nftId,
+      (update) => {
+        queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) => {
+          if (!current || update.version <= (current.version ?? 1)) return current
+          return {
+            ...current,
+            ...update,
+            price: update.price === undefined ? current.price : String(update.price),
+          }
+        })
+      },
+      () => {
+        void getNFT(nftId).then((latest) => {
+          queryClient.setQueryData<NonNullable<typeof nft>>(['nft', nftId], (current) =>
+            current && (current.version ?? 1) >= (latest.version ?? 1) ? current : latest,
+          )
+        }, (reconciliationError: unknown) => {
+          console.error(`Não foi possível reconciliar o NFT ${nftId} após reconexão.`, reconciliationError)
+        })
+      },
+    )
 
     return () => {
       socket?.disconnect()
@@ -84,7 +97,10 @@ function NFTDetailPage() {
             <span className="size-1 rounded-full bg-violet-500" />
             {nft.blockchain}
           </div>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{nft.name}</h1>
+          <div className="mt-4 flex items-start justify-between gap-4">
+            <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{nft.name}</h1>
+            <FavoriteButton nftId={nft.id} />
+          </div>
           <p className="mt-2 text-sm text-neutral-500">{nft.category} · {nft.rarity}</p>
           <p className="mt-5 leading-7 text-neutral-600">{nft.description}</p>
 
