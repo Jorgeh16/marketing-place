@@ -1,11 +1,12 @@
 import { useMutation } from '@tanstack/react-query'
 import { createRoute, Link, redirect, useNavigate } from '@tanstack/react-router'
 import { useRef } from 'react'
-import { rootRoute } from '../router'
+import { rootRoute } from '../root-route'
 import { useCart } from '../cart/cart-provider'
 import { createOrder } from '../lib/api'
 import { getApiErrorMessage, getSession, sessionQueryKey } from '../lib/session'
 import { queryClient } from '../lib/query-client'
+import { formatPrice } from '../lib/format-price'
 
 export const checkoutRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -25,6 +26,8 @@ export const checkoutRoute = createRoute({
 function CheckoutPage() {
   const navigate = useNavigate()
   const { items, totals, removePurchased } = useCart()
+  const hasUnacceptedPrice = items.some(({ nft, acceptedVersion }) => (nft.version ?? 1) > acceptedVersion)
+  const submitLock = useRef(false)
   const idempotency = useRef<{ fingerprint: string; key: string } | null>(null)
   const mutation = useMutation({
     mutationFn: ({ purchased, key }: { purchased: Array<{ nftId: string; quantity: number }>; key: string }) =>
@@ -32,6 +35,9 @@ function CheckoutPage() {
     onSuccess: (order) => {
       removePurchased(order.items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity })))
       void navigate({ to: '/orders/$orderId', params: { orderId: order.id } })
+    },
+    onSettled: () => {
+      submitLock.current = false
     },
   })
 
@@ -47,6 +53,8 @@ function CheckoutPage() {
   }
 
   function submitOrder() {
+    if (submitLock.current || hasUnacceptedPrice) return
+    submitLock.current = true
     const purchased = items.map(({ nft, quantity }) => ({ nftId: nft.id, quantity }))
     const fingerprint = JSON.stringify(purchased)
     if (idempotency.current?.fingerprint !== fingerprint) {
@@ -64,11 +72,11 @@ function CheckoutPage() {
         {items.map(({ nft, quantity }) => (
           <div key={nft.id} className="flex items-center justify-between gap-4 py-4">
             <div className="flex items-center gap-3">
-              <img src={nft.image} alt="" className="size-14 rounded-lg object-cover" />
+              <img src={nft.image} alt={nft.imageAlt} width={600} height={600} className="size-14 rounded-lg object-cover" />
               <div><p className="font-medium">{nft.name}</p><p className="text-sm text-neutral-500">Quantidade: {quantity}</p></div>
             </div>
             <span className="shrink-0 text-sm font-medium">
-              {(nft.price * quantity).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} {nft.currency}
+              {formatPrice(String(Number(nft.price) * quantity))} {nft.currency}
             </span>
           </div>
         ))}
@@ -88,9 +96,15 @@ function CheckoutPage() {
           {getApiErrorMessage(mutation.error, 'Não foi possível criar o pedido.')}
         </p>
       )}
+      {hasUnacceptedPrice && (
+        <p role="alert" className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
+          Há preços atualizados que precisam ser aceitos no carrinho antes de confirmar.
+          <Link to="/cart" className="ml-1 font-semibold underline">Revisar carrinho</Link>
+        </p>
+      )}
       <button
         type="button"
-        disabled={mutation.isPending}
+        disabled={mutation.isPending || hasUnacceptedPrice}
         onClick={submitOrder}
         className="mt-8 w-full rounded-xl bg-[#191816] px-6 py-4 font-medium text-white disabled:opacity-60"
       >

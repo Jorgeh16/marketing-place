@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Heart } from 'lucide-react'
+import { formatPrice } from '../lib/format-price'
 import type { NFT } from '../types/nft'
 
 export function NFTCard({ nft }: { nft: NFT }) {
@@ -13,7 +14,9 @@ export function NFTCard({ nft }: { nft: NFT }) {
         <div className="relative aspect-square overflow-hidden bg-neutral-100">
           <img
             src={nft.image}
-            alt={nft.name}
+            alt={nft.imageAlt}
+            width={600}
+            height={600}
             loading="lazy"
             className="size-full object-cover transition duration-500 group-hover:scale-105"
           />
@@ -35,7 +38,7 @@ export function NFTCard({ nft }: { nft: NFT }) {
           <div className="mt-5 flex items-end justify-between border-t border-black/5 pt-3">
             <span className="text-xs text-neutral-500">Preço</span>
             <span className="font-semibold">
-              {nft.price.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}{' '}
+              {formatPrice(nft.price)}{' '}
               <span className="text-xs text-neutral-500">{nft.currency}</span>
             </span>
           </div>
