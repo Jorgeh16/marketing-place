@@ -9,12 +9,16 @@ import {
   publishNFTEvent,
   publishOrderEvent,
   resetSocketMocks,
+  setSocketAuthorization,
   socketBindingHandlers,
 } from './socket-binding'
 
+const persistedStateKey = 'forma-mock-state-v1'
 const orders = new Map<string, Order>()
 const orderOwners = new Map<string, string>()
 const idempotentOrders = new Map<string, { fingerprint: string; order: Order }>()
+const pendingDecisions = new Map<string, 'confirm' | 'decline'>()
+const pendingDueAt = new Map<string, number>()
 const users = new Map<string, { user: User; password: string }>([
   ['demo@example.com', {
     user: { id: 'user-demo', name: 'NFT Collector', email: 'demo@example.com' },
@@ -44,6 +48,158 @@ let orderCount = 0
 let activeScenario = 'default'
 let favoriteFailureNext = false
 let mockGeneration = 0
+
+interface PersistedMockState {
+  version: 1
+  orders: Array<[string, Order]>
+  orderOwners: Array<[string, string]>
+  idempotentOrders: Array<[string, { fingerprint: string; order: Order }]>
+  pendingDecisions: Array<[string, 'confirm' | 'decline']>
+  pendingDueAt: Array<[string, number]>
+  stocks: Array<[string, number]>
+  orderCount: number
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isOrder(value: unknown): value is Order {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    (value.status === 'pending' || value.status === 'confirmed' || value.status === 'declined') &&
+    typeof value.version === 'number' &&
+    Array.isArray(value.items) &&
+    isRecord(value.receipt)
+  )
+}
+
+function isOrderStatus(value: unknown): value is Order['status'] {
+  return value === 'pending' || value === 'confirmed' || value === 'declined'
+}
+
+function isPersistedMockState(value: unknown): value is PersistedMockState {
+  if (!isRecord(value) || value.version !== 1 || typeof value.orderCount !== 'number') return false
+  return (
+    Array.isArray(value.orders) &&
+    value.orders.every((entry) => Array.isArray(entry) && typeof entry[0] === 'string' && isOrder(entry[1])) &&
+    Array.isArray(value.orderOwners) &&
+    value.orderOwners.every((entry) => Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'string') &&
+    Array.isArray(value.idempotentOrders) &&
+    value.idempotentOrders.every((entry) =>
+      Array.isArray(entry) &&
+      typeof entry[0] === 'string' &&
+      isRecord(entry[1]) &&
+      typeof entry[1].fingerprint === 'string' &&
+      isOrder(entry[1].order),
+    ) &&
+    Array.isArray(value.pendingDecisions) &&
+    value.pendingDecisions.every((entry) =>
+      Array.isArray(entry) &&
+      typeof entry[0] === 'string' &&
+      (entry[1] === 'confirm' || entry[1] === 'decline'),
+    ) &&
+    Array.isArray(value.pendingDueAt) &&
+    value.pendingDueAt.every((entry) =>
+      Array.isArray(entry) &&
+      typeof entry[0] === 'string' &&
+      typeof entry[1] === 'number' &&
+      Number.isFinite(entry[1]),
+    ) &&
+    Array.isArray(value.stocks) &&
+    value.stocks.every((entry) =>
+      Array.isArray(entry) &&
+      typeof entry[0] === 'string' &&
+      typeof entry[1] === 'number' &&
+      Number.isFinite(entry[1]) &&
+      entry[1] >= 0,
+    )
+  )
+}
+
+function persistMockState() {
+  const state: PersistedMockState = {
+    version: 1,
+    orders: [...orders],
+    orderOwners: [...orderOwners],
+    idempotentOrders: [...idempotentOrders],
+    pendingDecisions: [...pendingDecisions],
+    pendingDueAt: [...pendingDueAt],
+    stocks: nfts.map(({ id, stock }) => [id, stock]),
+    orderCount,
+  }
+  localStorage.setItem(persistedStateKey, JSON.stringify(state))
+}
+
+function completePendingOrder(orderId: string, generation: number) {
+  const order = orders.get(orderId)
+  const decision = pendingDecisions.get(orderId)
+  if (generation !== mockGeneration || !order || order.status !== 'pending' || !decision) return
+
+  order.status = decision === 'confirm' ? 'confirmed' : 'declined'
+  order.version += 1
+  order.updatedAt = new Date().toISOString()
+  pendingDecisions.delete(orderId)
+  pendingDueAt.delete(orderId)
+  if (decision === 'decline') {
+    for (const { nftId, quantity } of order.quote.items) {
+      const nft = nfts.find(({ id }) => id === nftId)
+      if (nft) nft.stock += quantity
+    }
+  }
+  persistMockState()
+  const ownerId = orderOwners.get(order.id)
+  if (ownerId) {
+    publishOrderEvent({
+      eventId: `order-${order.id}-version-${order.version}`,
+      resource: { id: order.id },
+      version: order.version,
+      data: { status: order.status },
+    }, ownerId)
+  }
+}
+
+function scheduleOrderCompletion(orderId: string) {
+  const generation = mockGeneration
+  const dueAt = pendingDueAt.get(orderId) ?? Date.now() + 500
+  setTimeout(() => completePendingOrder(orderId, generation), Math.max(0, dueAt - Date.now()))
+}
+
+function restoreMockState() {
+  const serialized = localStorage.getItem(persistedStateKey)
+  if (!serialized) return
+  try {
+    const parsed: unknown = JSON.parse(serialized)
+    if (!isPersistedMockState(parsed)) {
+      throw new Error('O estado persistido do mock possui formato inválido.')
+    }
+    orders.clear()
+    for (const [id, order] of parsed.orders) orders.set(id, order)
+    orderOwners.clear()
+    for (const [id, ownerId] of parsed.orderOwners) orderOwners.set(id, ownerId)
+    idempotentOrders.clear()
+    for (const [key, entry] of parsed.idempotentOrders) {
+      idempotentOrders.set(key, {
+        fingerprint: entry.fingerprint,
+        order: orders.get(entry.order.id) ?? entry.order,
+      })
+    }
+    pendingDecisions.clear()
+    for (const [id, decision] of parsed.pendingDecisions) pendingDecisions.set(id, decision)
+    pendingDueAt.clear()
+    for (const [id, dueAt] of parsed.pendingDueAt) pendingDueAt.set(id, dueAt)
+    for (const [id, stock] of parsed.stocks) {
+      const nft = nfts.find((item) => item.id === id)
+      if (nft) nft.stock = stock
+    }
+    orderCount = parsed.orderCount
+    for (const [id] of pendingDecisions) scheduleOrderCompletion(id)
+  } catch (error) {
+    console.error('Não foi possível restaurar o estado do marketplace simulado.', error)
+    localStorage.removeItem(persistedStateKey)
+  }
+}
 
 function resetScenarioChanges() {
   for (const nft of nfts) {
@@ -111,9 +267,12 @@ function createQuote(
 
 function resetMockState() {
   mockGeneration += 1
+  localStorage.removeItem(persistedStateKey)
   orders.clear()
   orderOwners.clear()
   idempotentOrders.clear()
+  pendingDecisions.clear()
+  pendingDueAt.clear()
   revokedSessions.clear()
   sessionOwners.clear()
   favoritesByUser.clear()
@@ -137,12 +296,18 @@ function resetMockState() {
 }
 
 function getAuthenticatedUser(request: Request): User | null {
-  if (activeScenario === 'expired-session') return null
   const authorization = request.headers.get('authorization')
   if (!authorization?.startsWith('Bearer ')) return null
 
   const token = authorization.slice('Bearer '.length)
-  if (revokedSessions.has(token)) return null
+  const sessionUser = getSessionUser(token)
+  if (!sessionUser) return null
+  const account = Array.from(users.values()).find(({ user }) => user.id === sessionUser.id)
+  return account?.user ?? sessionUser
+}
+
+function getSessionUser(token: string): User | null {
+  if (activeScenario === 'expired-session' || revokedSessions.has(token)) return null
   const sessionUserId = sessionOwners.get(token)
   const [, payload] = token.split('.')
   if (!payload || !token.startsWith('mock-session-')) return null
@@ -160,8 +325,7 @@ function getAuthenticatedUser(request: Request): User | null {
       typeof user.email === 'string'
       && (!sessionUserId || user.id === sessionUserId)
     ) {
-      const account = Array.from(users.values()).find(({ user: accountUser }) => accountUser.id === user.id)
-      return account?.user ?? { id: user.id, name: user.name, email: user.email }
+      return { id: user.id, name: user.name, email: user.email }
     }
   } catch {
     return null
@@ -169,6 +333,11 @@ function getAuthenticatedUser(request: Request): User | null {
 
   return null
 }
+
+setSocketAuthorization(
+  (token) => getSessionUser(token)?.id ?? null,
+  (orderId, userId) => orderOwners.get(orderId) === userId,
+)
 
 function createSession(user: User) {
   const payload = btoa(encodeURIComponent(JSON.stringify(user)))
@@ -199,6 +368,8 @@ function getUserWallets(user: User) {
     },
   ]
 }
+
+restoreMockState()
 
 export const handlers = [
   ...socketBindingHandlers,
@@ -337,6 +508,47 @@ export const handlers = [
       data: { price: body.price },
     })
     return HttpResponse.json({ accepted: true }, { status: 202 })
+  }),
+  http.post('*/api/test/orders/:id/events', async ({ params, request }) => {
+    const user = getAuthenticatedUser(request)
+    if (!user) return HttpResponse.json({ message: 'Não autenticado' }, { status: 401 })
+    const orderId = String(params.id)
+    if (orderOwners.get(orderId) !== user.id) {
+      return HttpResponse.json({ message: 'Pedido não encontrado' }, { status: 404 })
+    }
+
+    const body = await request.json() as {
+      eventId?: string
+      version?: number
+      status?: Order['status']
+    }
+    if (
+      typeof body.eventId !== 'string' ||
+      typeof body.version !== 'number' ||
+      !Number.isInteger(body.version) ||
+      !isOrderStatus(body.status)
+    ) {
+      return HttpResponse.json({ message: 'Evento de pedido inválido.' }, { status: 400 })
+    }
+    const { eventId, version, status } = body
+    const order = orders.get(orderId)
+    if (!order || version <= order.version) {
+      return HttpResponse.json({ accepted: false }, { status: 200 })
+    }
+    const accepted = publishOrderEvent({
+      eventId,
+      resource: { id: orderId },
+      version,
+      data: { status },
+    }, user.id, () => {
+      order.status = status
+      order.version = version
+      order.updatedAt = new Date().toISOString()
+      pendingDecisions.delete(orderId)
+      pendingDueAt.delete(orderId)
+      persistMockState()
+    })
+    return HttpResponse.json({ accepted }, { status: accepted ? 202 : 200 })
   }),
   http.get('*/api/favorites', ({ request }) => {
     const user = getAuthenticatedUser(request)
@@ -600,32 +812,22 @@ export const handlers = [
     orders.set(order.id, order)
     orderOwners.set(order.id, user.id)
     idempotentOrders.set(idempotencyKey, { fingerprint, order })
+    pendingDecisions.set(order.id, decision)
+    pendingDueAt.set(
+      order.id,
+      Date.now() + (
+        activeScenario === 'order-timeout-after-create' || activeScenario === 'order-pending'
+          ? 10_000
+          : 500
+      ),
+    )
     orderCount += 1
     for (const { nftId, quantity } of quoteResult.items) {
       const nft = nfts.find(({ id }) => id === nftId)!
       nft.stock -= quantity
     }
-    const generation = mockGeneration
-    setTimeout(() => {
-      if (generation !== mockGeneration || orders.get(order.id) !== order) return
-      order.status = decision === 'confirm' ? 'confirmed' : 'declined'
-      order.version = 2
-      order.updatedAt = new Date().toISOString()
-      if (decision === 'decline') {
-        for (const { nftId, quantity } of quoteResult.items) {
-          const nft = nfts.find(({ id }) => id === nftId)!
-          nft.stock += quantity
-        }
-      }
-      if (import.meta.env.DEV) {
-        publishOrderEvent({
-          eventId: `order-${order.id}-version-${order.version}`,
-          resource: { id: order.id },
-          version: order.version,
-          data: { status: order.status },
-        })
-      }
-    }, 500)
+    persistMockState()
+    scheduleOrderCompletion(order.id)
     if (activeScenario === 'order-timeout-after-create') return HttpResponse.error()
     return HttpResponse.json(order, { status: 201 })
   }),

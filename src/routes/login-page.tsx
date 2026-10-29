@@ -25,6 +25,7 @@ function LoginPage() {
   const mutation = useMutation({
     mutationFn: () => login({ email, password }),
     onSuccess: ({ token, user }) => {
+      queryClient.clear()
       localStorage.setItem('auth-token', token)
       window.dispatchEvent(new CustomEvent('auth:changed', { detail: { userId: user.id } }))
       queryClient.setQueryData(sessionQueryKey, user)

@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client'
+import type { Socket } from 'socket.io-client'
 import type { OrderStatus } from '../types/nft'
 
 export interface NFTUpdate {
@@ -16,21 +17,29 @@ interface ResourceEvent<T> {
   data: T
 }
 
+const activeSockets = new Set<Socket>()
+
+export function disconnectAuthenticatedSockets() {
+  for (const socket of activeSockets) socket.disconnect()
+  activeSockets.clear()
+}
+
 export function connectToOrder(
   orderId: string,
   onStatus: (status: OrderStatus, version: number) => void,
   onReconnect?: () => void,
+  initialVersion = 0,
 ) {
   const socket = createAuthenticatedSocket()
   if (!socket) return null
 
   socket.on('connect', () => {
-    socket.emit('order:watch', orderId)
+    socket.emit('order:watch', orderId, localStorage.getItem('auth-token'))
     onReconnect?.()
   })
 
   const seenEvents = new Set<string>()
-  let latestVersion = 0
+  let latestVersion = initialVersion
   socket.on('order.updated', (event: ResourceEvent<{ status: OrderStatus }>) => {
     if (
       event.resource.id !== orderId ||
@@ -55,7 +64,7 @@ export function connectToNFT(
   if (!socket) return null
 
   socket.on('connect', () => {
-    socket.emit('nft:watch', nftId)
+    socket.emit('nft:watch', nftId, localStorage.getItem('auth-token'))
     onReconnect?.()
   })
 
@@ -92,13 +101,16 @@ export function connectToNFTUpdates(
 
   const seenEvents = new Set<string>()
   const versions = new Map<string, number>()
+  const watchedNFTs = new Set(nftIds)
   socket.on('connect', () => {
-    nftIds.forEach((nftId) => socket.emit('nft:watch', nftId))
+    const token = localStorage.getItem('auth-token')
+    nftIds.forEach((nftId) => socket.emit('nft:watch', nftId, token))
     onReconnect?.()
   })
   socket.on('nft.updated', (event: ResourceEvent<Omit<NFTUpdate, 'id' | 'eventId'>>) => {
     const nftId = event.resource.id
     if (
+      !watchedNFTs.has(nftId) ||
       seenEvents.has(event.eventId) ||
       event.version <= (versions.get(nftId) ?? 1)
     ) return
@@ -121,12 +133,15 @@ function createAuthenticatedSocket() {
   const url = getSocketUrl()
   if (!token || !url) return null
 
-  return io(url, {
+  const socket = io(url, {
     auth: { token },
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
   })
+  activeSockets.add(socket)
+  socket.on('disconnect', () => activeSockets.delete(socket))
+  return socket
 }
 
 function getSocketUrl() {

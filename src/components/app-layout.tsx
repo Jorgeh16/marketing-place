@@ -5,6 +5,7 @@ import { useCart } from '../cart/cart-provider'
 import { logout } from '../lib/api'
 import { queryClient } from '../lib/query-client'
 import { getSession, sessionQueryKey } from '../lib/session'
+import { disconnectAuthenticatedSockets } from '../lib/order-socket'
 import { useEffect } from 'react'
 import { DevScenarioPanel } from './dev-scenario-panel'
 
@@ -27,12 +28,19 @@ export function AppLayout() {
   })
 
   useEffect(() => {
+    function handleAuthChange() {
+      disconnectAuthenticatedSockets()
+    }
     function handleExpiredSession() {
       const redirect = window.location.pathname === '/checkout' ? '/checkout' : '/'
       void navigate({ to: '/login', search: { redirect } })
     }
+    window.addEventListener('auth:changed', handleAuthChange)
     window.addEventListener('session:expired', handleExpiredSession)
-    return () => window.removeEventListener('session:expired', handleExpiredSession)
+    return () => {
+      window.removeEventListener('auth:changed', handleAuthChange)
+      window.removeEventListener('session:expired', handleExpiredSession)
+    }
   }, [navigate])
 
   return (

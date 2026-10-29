@@ -63,6 +63,30 @@ async function postNFTUpdate(
   }, { timeout: 10000 }).toContain(eventId)
 }
 
+async function postOrderUpdate(
+  page: Page,
+  orderId: string,
+  eventId: string,
+  version: number,
+  status: 'pending' | 'confirmed' | 'declined',
+) {
+  return page.evaluate(async ({ orderId, eventId, version, status }) => {
+    const token = localStorage.getItem('auth-token')
+    const response = await fetch(`/api/test/orders/${orderId}/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ eventId, version, status }),
+    })
+    return {
+      status: response.status,
+      body: await response.json() as { accepted?: boolean },
+    }
+  }, { orderId, eventId, version, status })
+}
+
 async function getActiveScenario(page: Page) {
   return page.evaluate(async () => {
     const response = await fetch('/api/test/state')
@@ -371,6 +395,108 @@ test('repeated confirmation clicks create only one order', async ({ page }) => {
   }).toBe(1)
 })
 
+test('a pending order is recovered after reload without creating a second order', async ({ page }) => {
+  await addNFTToCartAndSignIn(page)
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'order-timeout-after-create' }),
+    })
+  })
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+
+  await page.reload()
+  await expect(page).toHaveURL(/\/orders\/ord-/)
+  await expect(page.getByRole('heading', { name: 'Pedido pendente' })).toBeVisible()
+  const recoveredOrderId = page.url().split('/').pop()
+
+  await page.reload()
+  await expect(page).toHaveURL(new RegExp(`/orders/${recoveredOrderId}$`))
+  await expect(page.getByText(`Código do pedido: ${recoveredOrderId}`)).toBeVisible()
+  await expect.poll(async () => page.evaluate(async () => {
+    const response = await fetch('/api/test/state')
+    return (await response.json() as { orderCount: number }).orderCount
+  })).toBe(1)
+})
+
+test('order socket events apply once and ignore duplicates and stale versions', async ({ page }) => {
+  await addNFTToCartAndSignIn(page)
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'order-pending' }),
+    })
+  })
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click()
+  await expect(page).toHaveURL(/\/orders\/ord-/)
+  await expect(page.getByRole('heading', { name: 'Pedido pendente' })).toBeVisible()
+  const orderId = page.url().split('/').pop()!
+
+  await expect.poll(async () => page.evaluate(async (id) => {
+    const response = await fetch('/api/test/state')
+    const state = await response.json() as {
+      socket: { clients: Array<{ orderIds: string[] }> }
+    }
+    return state.socket.clients.some(({ orderIds }) => orderIds.includes(id))
+  }, orderId)).toBe(true)
+
+  const eventId = `order-test-${orderId}-v2`
+  const accepted = await postOrderUpdate(page, orderId, eventId, 2, 'confirmed')
+  expect(accepted.status).toBe(202)
+  expect(accepted.body.accepted).toBe(true)
+  await expect.poll(async () => page.evaluate(async (id) => {
+    const response = await fetch('/api/test/state')
+    const state = await response.json() as { acknowledgedEvents: string[] }
+    return state.acknowledgedEvents.includes(id)
+  }, eventId)).toBe(true)
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible()
+
+  const duplicate = await postOrderUpdate(page, orderId, eventId, 2, 'declined')
+  expect(duplicate.body.accepted).toBe(false)
+  const stale = await postOrderUpdate(page, orderId, `${eventId}-old`, 1, 'declined')
+  expect(stale.body.accepted).toBe(false)
+  await expect(page.getByRole('heading', { name: 'Pedido confirmado' })).toBeVisible()
+  await expect.poll(async () => page.evaluate(async (id) => {
+    const response = await fetch('/api/test/state')
+    const state = await response.json() as { acknowledgedEvents: string[] }
+    return state.acknowledgedEvents.filter((acknowledged) => acknowledged === id).length
+  }, eventId)).toBe(1)
+})
+
+test('changing accounts removes access to the previous account order and socket subscription', async ({ page }) => {
+  await addNFTToCartAndSignIn(page)
+  await page.evaluate(async () => {
+    await fetch('/api/test/scenario', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario: 'order-pending' }),
+    })
+  })
+  await page.getByRole('button', { name: 'Confirmar pedido' }).click()
+  await expect(page).toHaveURL(/\/orders\/ord-/)
+  const previousOrderId = page.url().split('/').pop()!
+
+  await page.getByRole('button', { name: 'Sair' }).click()
+  await page.getByRole('link', { name: 'Entrar' }).click()
+  await page.getByLabel('E-mail').fill('collector@example.com')
+  await page.getByLabel('Senha').fill('collect123')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
+  await page.goto(`/orders/${previousOrderId}`)
+
+  const orderStatus = await page.evaluate(async (id) => {
+    const token = localStorage.getItem('auth-token')
+    const response = await fetch(`/api/orders/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    return response.status
+  }, previousOrderId)
+  expect(orderStatus).toBe(404)
+})
+
 test('live NFT price updates notify cart and block checkout until accepted', async ({ page }) => {
   await page.goto('/nfts/nft-001')
   await expect(page.getByRole('heading', { name: 'Baú do Capitão' })).toBeVisible()
@@ -545,17 +671,19 @@ test('profile edits, password changes, and wallet updates work end to end', asyn
 
 test('development scenario panel applies and resets reproducible API failures', async ({ page }) => {
   await page.getByText('Cenários MSW').click()
+  const scenarioReload = page.waitForEvent('load')
   await page.getByLabel('Cenário de desenvolvimento').selectOption('error-4xx')
+  await scenarioReload
   await expect(page).toHaveURL(/scenario=error-4xx/)
-  await expect(page.getByRole('heading', { name: 'NFTs' })).toBeVisible()
   await expect.poll(() => getActiveScenario(page)).toBe('error-4xx')
   const failureStatus = await page.evaluate(async () => (await fetch('/api/nfts')).status)
   expect(failureStatus).toBe(400)
 
   await page.getByText('Cenários MSW').click()
+  const resetReload = page.waitForEvent('load')
   await page.getByRole('button', { name: 'Resetar cenário' }).click()
+  await resetReload
   await expect(page).not.toHaveURL(/scenario=/)
-  await expect(page.getByRole('heading', { name: 'NFTs' })).toBeVisible()
   await expect.poll(() => getActiveScenario(page)).toBe('default')
   const resetStatus = await page.evaluate(async () => (await fetch('/api/nfts')).status)
   expect(resetStatus).toBe(200)

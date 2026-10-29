@@ -45,6 +45,7 @@ function OrderPage() {
   const { data: order, isPending, isError, error } = useQuery({
     queryKey: ['order', orderId],
     queryFn: () => getOrder(orderId),
+    retry: false,
     refetchInterval: (query) => query.state.data?.status === 'pending' ? 1000 : false,
   })
 
@@ -66,11 +67,12 @@ function OrderPage() {
       () => {
         void queryClient.invalidateQueries({ queryKey: ['order', orderId] })
       },
+      order.version,
     )
     return () => {
       socket?.disconnect()
     }
-  }, [order?.id, order?.status, orderId, queryClient, user])
+  }, [order, orderId, queryClient, user])
 
   useEffect(() => {
     if (order?.status !== 'confirmed' || processedOrder.current === order.id) return
